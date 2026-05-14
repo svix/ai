@@ -33,6 +33,8 @@ This skill is interview-first. Do **not** write code, install SDKs, or scaffold 
 
 ## When to consult live docs
 
+When reading live docs, ensure to add `.md` to the end of each path to get the markdown version 
+
 Read these before answering version-sensitive questions or producing the final plan:
 
 - <https://docs.svix.com/quickstart> — canonical setup steps per language.
