@@ -17,7 +17,7 @@ allowed-tools: WebFetch
 | Sending webhooks to your customers                     | Dispatch (`message.create`) | <references/dispatch.md> |
 | Receiving third-party webhooks                         | Ingest Sources              | <references/ingest.md>   |
 | Multi-tenant routing within one customer               | Channels (not Event Types)  | <references/dispatch.md> |
-| Embedded customer UI for endpoints, logs, replay       | App Portal session URL      | <references/dispatch.md> |
+| Embedded webhooks management for endpoints, logs, replay       | App Portal session URL      | <references/dispatch.md> |
 | Monitoring your customers' endpoint health             | Operational webhooks        | <references/dispatch.md> |
 | Local development against the cloud                    | `svix listen`               | <references/cli.md>      |
 | Shell scripting, bulk ops, one-off provisioning        | CLI + `jq`                  | <references/cli.md>      |

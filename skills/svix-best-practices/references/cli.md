@@ -1,6 +1,6 @@
 # CLI
 
-The [Svix CLI](https://docs.svix.com/tutorials/cli) is auto-generated from the OpenAPI spec — flag names track the API. All commands accept `--help`.
+The [Svix CLI](https://docs.svix.com/tutorials/cli) lets you perform common actions in the Svix API as Webhook Sender (Creating endpoints, applications messages, etc) and using Svix Listen to receive webhooks in localhost.
 
 ## When to reach for it
 

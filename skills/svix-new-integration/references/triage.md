@@ -4,13 +4,12 @@ Ask these first, in order. Each one branches the rest of the interview — don't
 
 ## 1. Direction
 
-> **Do you send webhooks to your customers, receive them from third parties, or both?**
+> **Do you send webhooks to your customers or receive them from third parties?**
 
 - **Send (Dispatch)** — your service notifies your customers' systems about events that happened in your product.
 - **Receive (Ingest)** — your service consumes webhooks from providers like Stripe, GitHub, Shopify, or your own upstream services.
-- **Both** — a bidirectional integration. We'll walk through Dispatch first, then Ingest.
 
-> Branch to <dispatch-questions.md>, <ingest-questions.md>, or both in order.
+> Branch to <dispatch-questions.md> or <ingest-questions.md>
 
 ## 2. Tenancy model
 
