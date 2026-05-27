@@ -1,12 +1,14 @@
 ---
 name: svix-best-practices
 description: >-
-  Guides Svix integration decisions — Dispatch vs Ingest, tenancy
+  Guides Svix decisions: Dispatch vs Ingest, tenancy
   (Applications, Channels, customer UIDs), idempotency, signature
-  verification, App Portal, operational webhooks, and CLI usage. Use when
-  building, modifying, or reviewing any Svix integration — sending
-  outbound webhooks, receiving third-party webhooks, verifying signatures,
-  embedding the App Portal, configuring Sources, or writing handlers.
+  verification, App Portal, operational webhooks, and CLI usage. Use
+  whenever maintaining an application that already uses Svix, any
+  time you touch webhook-sending code, webhook-receiving handlers,
+  signature verification, App Portal embedding, Sources configuration,
+  or operational webhooks, or when you review or modify existing Svix
+  code paths.
 allowed-tools: WebFetch
 ---
 
