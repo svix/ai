@@ -2,9 +2,9 @@
 name: receiving-webhooks
 description: >-
   General guidelines for building a robust webhook receiver/handler:
-  verifying signatures, raw-body access, replay protection, async processing, 
-  idempotency/deduplication on the event ID, retries and endpoint auto-disabling. 
-  Use whenever you write, review, or debug a handler that consumes incoming webhooks from any provider.
+  verifying signatures, raw-body access, replay protection, async processing,
+  retries and endpoint auto-disabling. Use whenever you write, review, 
+  or debug a handler that consumes incoming webhooks from any provider.
 ---
 
 # Receiving Webhooks
@@ -15,8 +15,23 @@ any handler consuming webhooks, regardless of which provider or platform sends
 them.
 
 Header names, secret formats, and tolerances vary by provider. The names below
-are illustrative; always confirm the exact header names, signing scheme, and
-replay window against your provider's documentation before writing code.
+follow the [Standard Webhooks](https://www.standardwebhooks.com) specification;
+always confirm the exact header names, signing scheme, and replay window against
+your provider's documentation before writing code.
+
+## Standard Webhooks
+
+[Standard Webhooks](https://www.standardwebhooks.com) is an open specification
+plus reference libraries in most major languages for sending and verifying
+webhooks securely and consistently. Instead of every provider inventing its own
+header names and signing scheme, it defines a single, interoperable format.
+When your provider supports it, prefer the official `standardwebhooks` library over hand-rolled
+verification, it validates the signature, enforces the timestamp tolerance, and
+guards against replay attacks for you. The examples below use it.
+
+If your provider sends webhooks through [Svix](https://www.svix.com) (the
+`svix-id`, `svix-timestamp`, and `svix-signature` headers are the tell), use the
+official Svix SDK instead.
 
 ## The non-negotiables
 
@@ -28,8 +43,6 @@ replay window against your provider's documentation before writing code.
    verification. Read the unprocessed body.
 3. **Return a `2xx` within seconds.** Anything else, including `3xx`
    redirects, is typically treated as a failure and retried. Push heavy work async.
-4. **Be idempotent.** Retries mean the same event can arrive more than once.
-   Dedupe on the provider's unique event/message ID.
 
 ## Handler shape
 
@@ -37,18 +50,21 @@ replay window against your provider's documentation before writing code.
 2. **Verify** the signature using the provider's official library (or its
    documented scheme), passing the signature headers and your signing secret. On
    failure, return `400`.
-3. **Dedupe** on the unique event ID (see below). If already processed, return
-   `2xx` without re-running side effects.
-4. **Acknowledge fast.** Return `2xx` (e.g. `204`) immediately; do real work in
+3. **Acknowledge fast.** Return `2xx` (e.g. `204`) immediately; do real work in
    a background job/queue if it can exceed a second or two.
-5. **Branch on the payload** (event type) and process.
+4. **Branch on the payload** (event type) and process.
 
 ```ts
-// Pseudocode: shape is the same across providers/languages.
+import { Webhook } from "standardwebhooks";
+
 // rawBody must be the RAW request body (string/bytes), not parsed JSON.
+// secret is the base64 signing secret for this endpoint.
+const wh = new Webhook(secret);
+
 let payload;
 try {
-  payload = verifyWebhook(rawBody, req.headers, signingSecret);
+  // Verifies the signature AND the timestamp tolerance; throws on failure.
+  payload = wh.verify(rawBody, req.headers);
 } catch (err) {
   return res.status(400).send(); // verification failed, reject
 }
@@ -66,27 +82,14 @@ Most providers send some combination of:
 
 | Concept | Typical header | Purpose |
 |--------|---------|---------|
-| Event/message ID | e.g. `x-*-id` | Unique identifier (**the dedupe key**) |
-| Timestamp | e.g. `x-*-timestamp` | Send time, used for replay protection |
-| Signature | e.g. `x-*-signature` | HMAC signature(s), often versioned |
+| Message ID | `webhook-id` | Unique identifier for the message |
+| Timestamp | `webhook-timestamp` | Send time, used for replay protection |
+| Signature | `webhook-signature` | HMAC signature(s), often versioned |
 
 - **Use the signing secret, not an API key.** The secret used to verify inbound
   webhooks is usually distinct from the API token you use to call the provider's
   management API.
 - **Keep the secret server-side.** Never ship it in client bundles or commit it.
-
-## Idempotency / deduplication
-
-Retries and network blips cause the same event to be delivered more than once.
-The provider's event/message ID header is **stable across retries of the same
-message**, so use it as the dedupe key.
-
-- Insert the event ID into a "processed events" table with a **unique
-  constraint**.
-- On a duplicate-key violation, return `2xx` and skip re-processing. Don't
-  re-run side effects (charging a card, sending email, mutating state).
-- Make the side effect and the "mark processed" write atomic (same transaction)
-  where possible, so a crash mid-processing doesn't strand a half-applied event.
 
 ## Responding, retries, and auto-disable
 
@@ -104,17 +107,21 @@ message**, so use it as the dedupe key.
 
 Prefer the provider's official library. If your language genuinely has none,
 follow the provider's documented signing scheme exactly and **don't invent your
-own**. A common HMAC scheme looks like:
+own**. The steps are:
 
-1. Build the signed content by concatenating the documented fields (often
-   `id.timestamp.body`) with the body unmodified.
-2. Compute HMAC (commonly SHA-256), keyed by the signing secret (decode it first
-   if the provider documents a base64/hex-encoded secret).
-3. Compare against the signature header, stripping any version prefix (e.g.
-   `v1,`). Your computed value must match one of the provided signatures.
-4. **Constant-time comparison.** Never `==` on signatures (timing attacks).
-5. **Reject stale timestamps.** Enforce the documented tolerance window yourself.
-
+1. **Extract the secret bytes.** The signing secret is prefixed with `whsec_`;
+   strip the prefix and base64-decode the remainder to get the HMAC key.
+2. **Read the signature headers.** Take `webhook-id`, `webhook-timestamp`, and
+   `webhook-signature` from the request.
+3. **Check the timestamp tolerance.** Reject if `webhook-timestamp` is too far
+   from now (Standard Webhooks uses a 5-minute window) to guard against replay.
+4. **Build the signed content** as `{id}.{timestamp}.{body}`, using the **raw**
+   body bytes.
+5. **Compute the HMAC-SHA256** of the signed content with the decoded secret and
+   base64-encode it.
+6. **Compare in constant time.** `webhook-signature` is a space-separated list of
+   `v1,<sig>` entries; pass if your computed signature matches any of them. Use a
+   constant-time comparison, never `==`.
 
 ## Verification traps (debugging a failing handler)
 
@@ -135,5 +142,4 @@ own**. A common HMAC scheme looks like:
 - [ ] Verification runs against the **raw** body (no pre-parse)
 - [ ] Failed verification returns `400`
 - [ ] Handler returns `2xx` within the provider's timeout; heavy work is async
-- [ ] Dedupe on the event ID with a unique constraint; duplicates return `2xx` no-op
 - [ ] Signing secret used, kept server-side
