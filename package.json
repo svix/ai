@@ -1,5 +1,5 @@
 {
-  "name": "svix-agent-skills",
+  "name": "ai",
   "version": "0.1.0",
   "private": true,
   "description": "Svix agent skill — comprehensive Dispatch (sending), Ingest (receiving), and CLI guidance for AI coding agents."
