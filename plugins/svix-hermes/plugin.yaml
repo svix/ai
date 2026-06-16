@@ -1,0 +1,48 @@
+name: svix-hermes
+label: Svix
+kind: platform
+version: 1.0.0
+description: >
+  Svix gateway adapter for Hermes Agent.  Consumes webhook events through
+  Svix's polling-endpoint API instead of hosting a public HTTP server, so
+  Hermes can receive webhooks from behind NAT / on restricted networks.
+  Events flow through the same route → prompt → delivery pipeline as the
+  built-in ``webhook`` adapter.  Requires the ``svix`` Python SDK
+  (``pip install svix``).
+author: Svix (https://www.svix.com)
+
+# Svix is configured per-route under ``platforms.svix.extra.routes`` in
+# config.yaml — each route carries its own endpoint-scoped token, so there
+# are no globally-required env vars.  These optional vars cover the
+# env-only enable path and global poll tuning.
+optional_env:
+  - name: SVIX_ENABLED
+    description: "Enable the Svix adapter from the environment (true/1/yes)"
+    prompt: "Enable Svix? (true/false)"
+    password: false
+  - name: SVIX_POLL_INTERVAL
+    description: "Seconds to wait after Svix reports caught-up (default: 5)"
+    prompt: "Poll interval (seconds)"
+    password: false
+  - name: SVIX_POLL_LIMIT
+    description: "Max messages fetched per poll request (default: 50)"
+    prompt: "Poll limit"
+    password: false
+  - name: SVIX_ALLOW_ALL_USERS
+    description: >
+      Authorize every route's synthetic svix:<route> user (default: true).
+      Set to false to enforce SVIX_ALLOWED_USERS.
+    prompt: "Allow all users? (true/false)"
+    password: false
+  - name: SVIX_ALLOWED_USERS
+    description: >
+      Comma-separated allowlist of svix:<route> identities. Only honored when
+      SVIX_ALLOW_ALL_USERS=false (the host checks allow-all first).
+    prompt: "Allowed users (svix:<route>, comma-separated)"
+    password: false
+  - name: SVIX_HOME_CHANNEL
+    description: >
+      Home channel for cross-platform/cron delivery. Defaulted to "-" so the
+      host's one-time /sethome notice isn't posted to route deliver targets.
+    prompt: "Home channel"
+    password: false
