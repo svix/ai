@@ -1,0 +1,23 @@
+{
+  "name": "svix-openclaw",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenClaw plugin that receives webhook actions from a Svix Polling Endpoint instead of an inbound HTTP server",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "dependencies": {
+    "svix": "^1.93.0",
+    "zod": "4.4.3"
+  },
+  "peerDependencies": {
+    "openclaw": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "id": "svix-openclaw",
+  "activation": {
+    "onStartup": true
+  },
+  "name": "Svix OpenClaw",
+  "description": "Receives OpenClaw webhook events by polling Svix Polling Endpoints instead of exposing an inbound HTTP server: applies TaskFlow actions and/or forwards messages to the gateway /hooks/wake and /hooks/agent automation endpoints.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "secretRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["env", "file", "exec"]
+          },
+          "provider": { "type": "string" },
+          "id": { "type": "string" }
+        },
+        "required": ["source", "provider", "id"]
+      },
+      "secretInput": {
+        "anyOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/secretRef" }]
+      },
+      "hookEndpoint": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "url": { "type": "string", "format": "uri", "minLength": 1 },
+          "token": { "$ref": "#/$defs/secretInput" },
+          "eventType": { "type": "string", "minLength": 1 },
+          "channel": { "type": "string", "minLength": 1 },
+          "pollIntervalMs": { "type": "integer", "minimum": 1 },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 500 },
+          "startIterator": { "type": "string", "minLength": 1 },
+          "payloadField": { "type": "string" }
+        },
+        "required": ["url", "token"]
+      },
+      "route": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "url": { "type": "string", "format": "uri", "minLength": 1 },
+          "token": { "$ref": "#/$defs/secretInput" },
+          "sessionKey": { "type": "string", "minLength": 1 },
+          "controllerId": { "type": "string", "minLength": 1 },
+          "eventType": { "type": "string", "minLength": 1 },
+          "channel": { "type": "string", "minLength": 1 },
+          "pollIntervalMs": { "type": "integer", "minimum": 1 },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 500 },
+          "startIterator": { "type": "string", "minLength": 1 },
+          "payloadField": { "type": "string" },
+          "description": { "type": "string" }
+        },
+        "required": ["url", "token", "sessionKey"]
+      }
+    },
+    "properties": {
+      "routes": {
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/$defs/route"
+        }
+      },
+      "wake": { "$ref": "#/$defs/hookEndpoint" },
+      "agent": { "$ref": "#/$defs/hookEndpoint" }
+    }
+  }
+}
