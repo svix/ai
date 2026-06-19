@@ -4,11 +4,13 @@ kind: platform
 version: 1.0.0
 description: >
   Svix gateway adapter for Hermes Agent.  Consumes webhook events through
-  Svix's polling-endpoint API instead of hosting a public HTTP server, so
-  Hermes can receive webhooks from behind NAT / on restricted networks.
-  Events flow through the same route → prompt → delivery pipeline as the
-  built-in ``webhook`` adapter.  Requires the ``svix`` Python SDK
-  (``pip install svix``).
+  Svix's polling-endpoint AutoConfig API (the SDK's ``AutoConfigConsumer``)
+  instead of hosting a public HTTP server, so Hermes can receive webhooks
+  from behind NAT / on restricted networks.  Each route holds one
+  ``auto_v1_*`` AutoConfig token; the plugin self-provisions the polling
+  endpoint and drains it with subscribe/receive/commit.  Events flow through
+  the same route → prompt → delivery pipeline as the built-in ``webhook``
+  adapter.  Requires ``svix>=1.96.0`` (``pip install 'svix>=1.96.0'``).
 author: Svix (https://www.svix.com)
 
 # Svix is configured per-route under ``platforms.svix.extra.routes`` in
