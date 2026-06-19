@@ -22,19 +22,23 @@ Create one from the [Svix dashboard](https://dashboard.svix.com) under
 2. Click 'Enable Authentication'
 3. Add a Secret (store it because you are going to need it later)
  
-## Step 3 Create a Polling Endpoint Destination
+## Step 3 Create an AutoConfig Endpoint Destination
 
 1. Go to the Destinations Tab and Click 'Add Endpoint'
-2. Change the Webhook type from 'Webhook' to 'Polling Endpoint'
-3. Click 'Create'
+2. Choose the **AutoConfig** endpoint type and Click 'Create'
 
-## Step 3.1 Store your Endpoint secret
+## Step 3.1 Store your AutoConfig token
 
-1. In your recently created Polling Endpoint, click 'Create API key'
-2. In your ~/.hermes/env, paste your secret as the following environment variable
+1. The dashboard shows the `auto_v1_...` token **once** — copy it now (it
+   won't be shown again; you can rotate it later if you lose it).
+2. In your ~/.hermes/env, paste it as the following environment variable
 ```
-SVIX_GITHUB_INGEST_TOKEN=sk_endp......
+SVIX_GITHUB_AUTOCONFIG_TOKEN=auto_v1_......
 ```
+
+The token embeds the app id, sink id, and server URL, so there's no polling URL
+to copy. The plugin calls `subscribe()` on startup to configure this endpoint
+(its event filters) automatically from your route's `events`.
 
 ## Step 4 — Add the GitHub webhook
 
@@ -64,8 +68,7 @@ platforms:
       poll_interval: 5
       routes:
         github_prs:
-          url: https://api.svix.com/api/v1/app/<app_id>/poller/<sink_id>/
-          auth_token_env: SVIX_GITHUB_INGEST_TOKEN
+          token_env: SVIX_GITHUB_AUTOCONFIG_TOKEN
           prompt: |
             PR #{number} ({action}): {pull_request.title}
             Author: {pull_request.user.login}

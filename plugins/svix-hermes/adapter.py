@@ -1,16 +1,18 @@
 """Svix polling platform adapter (Hermes Agent plugin).
 
-Polls Svix's polling-endpoint API for webhook events instead of hosting an
-HTTP server. See README.md for configuration, route fields, and design notes.
+Consumes webhook events through Svix's polling-endpoint AutoConfig API
+instead of hosting an HTTP server. Each route holds a single ``auto_v1_*``
+AutoConfig token (which embeds the app id, sink id, and server URL); the
+plugin drives the SDK's ``AutoConfigConsumer`` — ``subscribe()`` to
+provision the polling endpoint, then ``receive()``/``commit()`` to drain
+messages. See README.md for configuration, route fields, and design notes.
 """
 
 import asyncio
 import logging
 import os
-import re
 import time
 from typing import Any, Dict, Optional
-from urllib.parse import urlparse
 
 from gateway.config import Platform, PlatformConfig
 from gateway.platforms.base import (
@@ -31,16 +33,12 @@ _DEFAULT_POLL_LIMIT = 50
 # run per message. This is the polling-world analogue of the upstream webhook
 # adapter's per-route rate limit (``webhook.py`` ``rate_limit``, default 30/min).
 _DEFAULT_MAX_CONCURRENT = 5
-# Floor sleep when the server returns done=False with an empty page, so a
-# misbehaving server can't spin the poll loop against the API.
-_EMPTY_PAGE_SLEEP = 0.5
 _DEDUP_TTL = 3600.0
 # Truthy spellings, matching the host's shared TRUTHY_STRINGS (incl. "on").
 _TRUTHY = {"1", "true", "yes", "on"}
-# Polling-endpoint URL shape: /api/v1/app/{app_id}/poller/{sink_id}/
-_URL_PATH_RE = re.compile(
-    r"/api/v\d+/app/(?P<app_id>[^/]+)/poller/(?P<sink_id>[^/]+)/?",
-)
+# AutoConfig token prefix, surfaced in the "looks like the old sk_endp_*
+# token" error so a stale config gets a clear pointer.
+_AUTOCONFIG_TOKEN_PREFIX = "auto_v1_"
 
 # Injected into the agent's system prompt for Svix-sourced turns via the
 # registry entry's ``platform_hint`` field.
@@ -57,46 +55,41 @@ _SVIX_PLATFORM_HINT = (
 
 
 def _import_svix():
-    """Return (SvixAsync, SvixOptions, MessagePollerConsumerPollOptions) or None."""
+    """Return the AutoConfig consumer SDK surface, or None when not installed.
+
+    Tuple: ``(AutoConfigConsumer, AutoConfigError, SinkInCommon,
+    StartingPosition, MessagePollerv2ConsumerPollOptions)``. The poll-options
+    class lives under ``api_internal`` — it's the typed argument the
+    consumer's ``receive()`` accepts, so importing it from there is the
+    supported way to set ``limit``/``lease_duration_ms``/``starting_position``.
+    """
     try:
-        from svix.api import (
-            MessagePollerConsumerPollOptions,
-            SvixAsync,
-            SvixOptions,
+        from svix import AutoConfigConsumer, AutoConfigError
+        from svix.api_internal.message_pollerv2 import (
+            MessagePollerv2ConsumerPollOptions,
         )
-        return SvixAsync, SvixOptions, MessagePollerConsumerPollOptions
+        from svix.models import SinkInCommon, StartingPosition
+        return (
+            AutoConfigConsumer,
+            AutoConfigError,
+            SinkInCommon,
+            StartingPosition,
+            MessagePollerv2ConsumerPollOptions,
+        )
     except ImportError:
         return None
 
 
 def check_svix_requirements() -> bool:
-    """Return True when the Svix SDK is importable. Per-route auth tokens are
-    validated later, at ``connect()`` time.
+    """Return True when the Svix SDK (with AutoConfig support) is importable.
+    Per-route AutoConfig tokens are validated later, at ``connect()`` time.
 
     No auto-install: plugins can't register a ``tools.lazy_deps`` feature, so
     there is nothing to install through. The ``install_hint`` on the registry
-    entry surfaces ``pip install svix`` when the SDK is missing.
+    entry surfaces ``pip install 'svix>=1.96.0'`` when the SDK is missing or
+    too old to expose ``AutoConfigConsumer``.
     """
     return _import_svix() is not None
-
-
-def _parse_polling_url(url: str) -> tuple[str, str, Optional[str]]:
-    """Split a polling URL into (app_id, sink_id, server_url).
-
-    server_url is the scheme+host (None for a relative URL); carrying it lets
-    region-specific / self-hosted deployments work without an extra config knob.
-    """
-    parsed = urlparse(url)
-    match = _URL_PATH_RE.search(parsed.path or "")
-    if not match:
-        raise ValueError(
-            f"Invalid Svix polling URL: {url!r}. Expected "
-            f"https://<svix-host>/api/v1/app/<app_id>/poller/<sink_id>/"
-        )
-    server_url = None
-    if parsed.scheme and parsed.netloc:
-        server_url = f"{parsed.scheme}://{parsed.netloc}"
-    return match.group("app_id"), match.group("sink_id"), server_url
 
 
 class SvixAdapter(WebhookDeliveryMixin, BasePlatformAdapter):
@@ -114,6 +107,23 @@ class SvixAdapter(WebhookDeliveryMixin, BasePlatformAdapter):
         ) or _DEFAULT_POLL_LIMIT
         self._routes: Dict[str, dict] = config.extra.get("routes", {}) or {}
 
+        # v2-poller lease/replay tuning. ``lease_duration_ms`` bounds how long
+        # a received batch stays leased before the server may re-deliver it
+        # (None → server default, ~5min); we commit each batch right after
+        # dispatch, so this only matters if the process stalls mid-batch.
+        # ``starting_position`` only affects a brand-new consumer's first poll:
+        # "latest" skips any backlog, "earliest" replays it.
+        _lease = config.extra.get("lease_duration_ms")
+        self._lease_duration_ms: Optional[int] = (
+            int(_lease) if _lease not in (None, "") else None
+        )
+        self._starting_position_raw: str = str(
+            config.extra.get("starting_position", "latest")
+        ).lower()
+        # Resolved to the SDK ``StartingPosition`` enum in connect(), once the
+        # SDK is confirmed importable.
+        self._starting_position = None
+
         # Bound concurrent agent runs so a backlog drain can't fan out one run
         # per message. The poll loop awaits this before dispatching, so polling
         # itself throttles once the cap is reached.
@@ -122,8 +132,8 @@ class SvixAdapter(WebhookDeliveryMixin, BasePlatformAdapter):
         ) or _DEFAULT_MAX_CONCURRENT
         self._run_semaphore = asyncio.Semaphore(self._max_concurrent)
 
-        # Per-route polling state: client, app_id, sink_id, consumer_id,
-        # iterator. Populated by connect().
+        # Per-route polling state: AutoConfigConsumer, consumer_id, and a
+        # one-shot ``subscribed`` flag. Populated by connect().
         self._route_state: Dict[str, dict] = {}
         self._poll_tasks: Dict[str, asyncio.Task] = {}
         # Poll-options class, resolved once at connect() so the poll loop need
@@ -146,8 +156,9 @@ class SvixAdapter(WebhookDeliveryMixin, BasePlatformAdapter):
         # Reference to gateway runner for cross-platform delivery (set externally)
         self.gateway_runner = None
 
-        # In-process dedup of message IDs (defense-in-depth against accidental
-        # cursor non-advancement; the iterator handles the normal case).
+        # In-process dedup of message IDs (defense-in-depth across the
+        # crash-before-commit redelivery window; the committed offset handles
+        # the normal case).
         self._seen_message_ids: Dict[str, float] = {}
 
     # ------------------------------------------------------------------
@@ -155,43 +166,65 @@ class SvixAdapter(WebhookDeliveryMixin, BasePlatformAdapter):
     # ------------------------------------------------------------------
 
     def _resolve_route_token(self, name: str, route: dict) -> str:
-        """Resolve a route's auth token: literal ``auth_token`` wins over
-        ``auth_token_env``. Raises ValueError when neither resolves."""
-        literal = route.get("auth_token") or ""
+        """Resolve a route's AutoConfig token: literal ``token`` wins over
+        ``token_env``. Raises ValueError when neither resolves.
+        """
+        literal = route.get("token") or ""
         if literal:
             return str(literal)
-        env_name = route.get("auth_token_env")
+        env_name = route.get("token_env")
         if env_name:
             val = os.getenv(str(env_name), "")
             if not val:
                 raise ValueError(
-                    f"[svix] Route '{name}' sets auth_token_env={env_name!r} but "
+                    f"[svix] Route '{name}' sets token_env={env_name!r} but "
                     f"that environment variable is empty. Export it or set a "
-                    f"literal 'auth_token' on the route."
+                    f"literal 'token' on the route."
                 )
             return val
         raise ValueError(
-            f"[svix] Route '{name}' has no auth token. Set 'auth_token' or "
-            f"'auth_token_env' on the route. Polling endpoints need an "
-            f"endpoint-scoped 'sk_endp_*' token found in the Svix dashboard."
+            f"[svix] Route '{name}' has no token. Set 'token' or 'token_env' "
+            f"on the route. AutoConfig polling needs an 'auto_v1_*' token from "
+            f"the Svix dashboard (Endpoints → AutoConfig) or CLI."
         )
 
     async def connect(self) -> bool:
         """Validate routes, wire per-route clients, and start polling.
 
         Returns ``False`` (non-retryable fatal error) on permanent
-        misconfiguration — missing SDK, bad URL, unresolvable token, or
-        ``deliver_only`` with no real target.
+        misconfiguration — missing SDK, unresolvable/undecodable token, or
+        ``deliver_only`` with no real target. The network ``subscribe()`` is
+        deferred to the poll loop so transient failures retry instead of
+        aborting startup.
         """
         svix_api = _import_svix()
         if not svix_api:
-            msg = "[svix] svix SDK not installed. Run: pip install svix"
+            msg = (
+                "[svix] svix SDK with AutoConfig support not installed. "
+                "Run: pip install 'svix>=1.96.0'"
+            )
             logger.error(msg)
             self._set_fatal_error(
                 "svix_missing_dependency", msg, retryable=False
             )
             return False
-        SvixAsync, SvixOptions, self._poll_options_cls = svix_api
+        (
+            AutoConfigConsumer,
+            AutoConfigError,
+            SinkInCommon,
+            StartingPosition,
+            self._poll_options_cls,
+        ) = svix_api
+
+        try:
+            self._starting_position = StartingPosition(self._starting_position_raw)
+        except ValueError:
+            logger.warning(
+                "[svix] Unknown starting_position %r; defaulting to 'latest'. "
+                "Valid values: earliest, latest.",
+                self._starting_position_raw,
+            )
+            self._starting_position = StartingPosition.LATEST
 
         # Authz runs through env hooks (see register()). The host's allow-all
         # flag short-circuits before the allowlist, so an allowlist set without
@@ -224,28 +257,54 @@ class SvixAdapter(WebhookDeliveryMixin, BasePlatformAdapter):
                 if route.get("enabled", True) is False:
                     logger.info("[svix] Route '%s' disabled — skipping", name)
                     continue
-                url = route.get("url")
-                if not url:
-                    raise ValueError(
-                        f"[svix] Route '{name}' has no 'url'. Each route must "
-                        f"declare its Svix polling endpoint URL."
-                    )
-                try:
-                    app_id, sink_id, server_url = _parse_polling_url(url)
-                except ValueError as exc:
-                    raise ValueError(f"[svix] Route '{name}': {exc}") from exc
 
                 token = self._resolve_route_token(name, route)
 
-                options = SvixOptions(server_url=server_url) if server_url else SvixOptions()
+                # The AutoConfig sink config applied at subscribe() time. The
+                # route's ``events`` allowlist doubles as the server-side
+                # ``filter_types`` so Svix only delivers matching events (the
+                # client-side filter in _process_message stays as defense).
+                #
+                # Only pass fields the route actually sets: the SDK serializes
+                # the subscribe body with ``exclude_unset=True``, so an explicit
+                # ``None`` is kept and emitted as JSON ``null`` — which the
+                # server rejects (e.g. ``sink.config.description: invalid type:
+                # null, expected a string``). Omitting them drops them entirely.
+                events = route.get("events") or []
+                sink_kwargs: Dict[str, Any] = {}
+                if events:
+                    sink_kwargs["filter_types"] = list(events)
+                if route.get("channels"):
+                    sink_kwargs["channels"] = route.get("channels")
+                if route.get("description"):
+                    sink_kwargs["description"] = route.get("description")
+                if route.get("metadata"):
+                    sink_kwargs["metadata"] = route.get("metadata")
+                sink_in = SinkInCommon(**sink_kwargs)
+
+                # Construction decodes the token locally (no network) and
+                # raises on a malformed/old token — surface that as config.
+                try:
+                    consumer = AutoConfigConsumer(token, sink_in)
+                except AutoConfigError as exc:
+                    hint = (
+                        " It looks like an old endpoint-scoped 'sk_endp_*' "
+                        "token — AutoConfig needs the 'auto_v1_*' token."
+                        if not str(token).startswith(_AUTOCONFIG_TOKEN_PREFIX)
+                        else ""
+                    )
+                    raise ValueError(
+                        f"[svix] Route '{name}': could not decode AutoConfig "
+                        f"token ({exc}).{hint}"
+                    ) from exc
+
                 self._route_state[name] = {
-                    "client": SvixAsync(token, options),
-                    "app_id": app_id,
-                    "sink_id": sink_id,
+                    "consumer": consumer,
                     # Deterministic consumer ID so the Svix server tracks our
-                    # cursor and restarts resume where they left off.
+                    # committed offset and restarts resume where they left off.
                     "consumer_id": f"hermes-{name}",
-                    "iterator": None,
+                    # subscribe() runs once, lazily, on the first poll cycle.
+                    "subscribed": False,
                 }
 
                 # deliver_only routes bypass the agent — the event payload becomes a
@@ -296,47 +355,80 @@ class SvixAdapter(WebhookDeliveryMixin, BasePlatformAdapter):
     # ------------------------------------------------------------------
 
     async def _poll_route(self, route_name: str) -> None:
-        """Long-running poll loop for a single route.
+        """Long-running subscribe → receive → commit loop for a single route.
 
-        Polls the server-tracked consumer iterator (kept in memory; on restart
-        the first call omits it so the server resumes from the consumer's
-        position). ``done == True`` means caught up — wait ``poll_interval``.
+        The first cycle (idempotently) provisions the polling endpoint via
+        ``subscribe()``, applying the route's server-side ``filter_types`` /
+        ``channels``. Each cycle then:
 
-        Delivery is at-most-once w.r.t. agent completion: the cursor advances
-        when a page is processed, not when the dispatched agent run finishes,
-        so a crash mid-run drops that in-flight event. Fine for one-shot
-        webhook reviews; don't rely on it for work that must not be lost.
+        - ``receive()`` leases a batch of messages for the stable consumer
+          (``hermes-<route>``, tracked server-side so restarts resume).
+        - every message is deduped, filtered, and dispatched.
+        - ``commit()`` acks the batch's highest offset, advancing the consumer
+          past it and releasing the lease so the next receive proceeds.
+
+        Delivery is at-least-once w.r.t. dispatch: the offset is committed only
+        after the whole batch has been dispatched, so a crash before commit
+        re-delivers the batch (deduped in-process within the TTL). It stays
+        at-most-once w.r.t. agent completion — commit happens at dispatch time,
+        not when the agent run finishes — so a crash mid-run still drops that
+        in-flight event. Fine for one-shot webhook reviews.
         """
         state = self._route_state[route_name]
-        client = state["client"]
-        MessagePollerConsumerPollOptions = self._poll_options_cls
+        consumer = state["consumer"]
+        consumer_id = state["consumer_id"]
+        PollOptions = self._poll_options_cls
         backoff = 1.0
         max_backoff = 60.0
 
         while True:
             try:
-                options = MessagePollerConsumerPollOptions(
+                if not state["subscribed"]:
+                    # Idempotent create/update of the polling endpoint. Best
+                    # effort and non-blocking: a failure (transient network, or
+                    # the consumer not needing reconfiguration) must NOT wedge
+                    # the route, so we fall through to poll regardless. We keep
+                    # retrying each cycle until it succeeds; the warning is
+                    # emitted once so a persistent failure doesn't spam the log.
+                    try:
+                        await consumer.subscribe_async()
+                        state["subscribed"] = True
+                        logger.info(
+                            "[svix] Route %s subscribed (consumer=%s)",
+                            route_name, consumer_id,
+                        )
+                    except Exception as exc:
+                        logger.log(
+                            logging.DEBUG if state.get("subscribe_warned")
+                            else logging.WARNING,
+                            "[svix] Route %s subscribe() failed (%s); polling "
+                            "anyway. If no events arrive, configure the "
+                            "endpoint's event types in the Svix dashboard.",
+                            route_name, exc,
+                        )
+                        state["subscribe_warned"] = True
+
+                options = PollOptions(
                     limit=self._poll_limit,
-                    iterator=state["iterator"],
+                    lease_duration_ms=self._lease_duration_ms,
+                    # Only honored on the first poll for a new consumer; once
+                    # an offset is committed the server tracks it and this is
+                    # ignored.
+                    starting_position=self._starting_position,
                 )
-                result = await client.message.poller.consumer_poll(
-                    state["app_id"], state["sink_id"], state["consumer_id"],
-                    options,
-                )
+                result = await consumer.receive_async(consumer_id, options)
                 backoff = 1.0
 
-                # Prune the dedup set once per page (not once per message).
+                # Prune the dedup set once per batch (not once per message).
                 now = time.time()
                 self._seen_message_ids = {
                     k: t for k, t in self._seen_message_ids.items()
                     if now - t < _DEDUP_TTL
                 }
 
-                fresh = 0
                 for message in result.data:
                     try:
-                        if await self._process_message(route_name, message):
-                            fresh += 1
+                        await self._process_message(route_name, message)
                     except Exception:
                         logger.exception(
                             "[svix] Error processing message %s on route %s",
@@ -344,29 +436,18 @@ class SvixAdapter(WebhookDeliveryMixin, BasePlatformAdapter):
                             route_name,
                         )
 
-                advanced = bool(result.iterator)
-                if advanced:
-                    state["iterator"] = result.iterator
-
-                if result.done:
+                if result.data:
+                    # Ack everything up to and including the batch's highest
+                    # offset. Done only after dispatch so a crash before this
+                    # point re-delivers the batch. The server returns the batch
+                    # in offset order; max() guards against any reordering.
+                    offset = max(m.offset for m in result.data)
+                    await consumer.commit_async(consumer_id, offset)
+                    # Committed past the batch — loop immediately to keep
+                    # draining any backlog.
+                else:
+                    # Empty batch (``done``): caught up — wait before re-polling.
                     await asyncio.sleep(self._poll_interval)
-                elif not result.data:
-                    await asyncio.sleep(_EMPTY_PAGE_SLEEP)
-                elif fresh == 0 and not advanced:
-                    # Non-empty page, every message a dedup re-seen, AND the
-                    # iterator didn't advance — re-polling returns the same page
-                    # in a tight loop bounded only by HTTP RTT. Pace it and
-                    # surface the stall (the dedup set was built for exactly this).
-                    logger.warning(
-                        "[svix] Route %s: page of %d message(s) yielded no new "
-                        "messages and the cursor did not advance — pacing to "
-                        "avoid a hot poll loop.",
-                        route_name,
-                        len(result.data),
-                    )
-                    await asyncio.sleep(self._poll_interval)
-                # else: progress (new messages or the cursor advanced) — loop
-                # immediately to drain the backlog
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -390,9 +471,10 @@ class SvixAdapter(WebhookDeliveryMixin, BasePlatformAdapter):
         """Dedup, filter by event type, render the prompt, then either
         direct-deliver or dispatch the agent via ``handle_message()``.
 
-        Returns ``True`` when the message was newly seen (the cursor advanced
-        for it), ``False`` when it was dedup-skipped — the poll loop uses this
-        to detect a non-advancing cursor and pace itself.
+        Returns ``True`` when the message was newly seen, ``False`` when it was
+        dedup-skipped. The poll loop commits offsets regardless (the server
+        won't re-deliver a committed batch); the dedup set only guards the
+        crash-before-commit redelivery window.
         """
         route_config = self._routes.get(route_name)
         if not route_config:
