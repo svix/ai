@@ -29,35 +29,55 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "url": { "type": "string", "format": "uri", "minLength": 1 },
           "token": { "$ref": "#/$defs/secretInput" },
-          "eventType": { "type": "string", "minLength": 1 },
-          "channel": { "type": "string", "minLength": 1 },
+          "subscribe": { "type": "boolean" },
+          "filterTypes": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1
+          },
+          "channels": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1
+          },
+          "consumerId": { "type": "string", "minLength": 1 },
+          "startingPosition": { "type": "string", "enum": ["earliest", "latest"] },
+          "leaseDurationMs": { "type": "integer", "minimum": 1 },
           "pollIntervalMs": { "type": "integer", "minimum": 1 },
           "limit": { "type": "integer", "minimum": 1, "maximum": 500 },
-          "startIterator": { "type": "string", "minLength": 1 },
           "payloadField": { "type": "string" }
         },
-        "required": ["url", "token"]
+        "required": ["token"]
       },
       "route": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "enabled": { "type": "boolean" },
-          "url": { "type": "string", "format": "uri", "minLength": 1 },
           "token": { "$ref": "#/$defs/secretInput" },
           "sessionKey": { "type": "string", "minLength": 1 },
           "controllerId": { "type": "string", "minLength": 1 },
-          "eventType": { "type": "string", "minLength": 1 },
-          "channel": { "type": "string", "minLength": 1 },
+          "subscribe": { "type": "boolean" },
+          "filterTypes": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1
+          },
+          "channels": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1
+          },
+          "consumerId": { "type": "string", "minLength": 1 },
+          "startingPosition": { "type": "string", "enum": ["earliest", "latest"] },
+          "leaseDurationMs": { "type": "integer", "minimum": 1 },
           "pollIntervalMs": { "type": "integer", "minimum": 1 },
           "limit": { "type": "integer", "minimum": 1, "maximum": 500 },
-          "startIterator": { "type": "string", "minLength": 1 },
           "payloadField": { "type": "string" },
           "description": { "type": "string" }
         },
-        "required": ["url", "token", "sessionKey"]
+        "required": ["token", "sessionKey"]
       }
     },
     "properties": {

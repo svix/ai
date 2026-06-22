@@ -10,7 +10,7 @@
     ]
   },
   "dependencies": {
-    "svix": "^1.93.0",
+    "svix": "^1.96.0",
     "zod": "4.4.3"
   },
   "peerDependencies": {

@@ -34,7 +34,7 @@ function makeTaskFlowDispatch(api: OpenClawPluginApi, poller: ResolvedTaskFlowPo
   // verify); the executor only reads `taskFlow` and `defaultControllerId`.
   const target: TaskFlowWebhookTarget = {
     routeId: poller.routeId,
-    path: `svix:${poller.appId}/${poller.sinkId}`,
+    path: `svix:${poller.consumerId}`,
     secretInput: poller.token,
     secretConfigPath: poller.tokenConfigPath,
     defaultControllerId: poller.controllerId,
