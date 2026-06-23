@@ -121,11 +121,12 @@ OpenClaw rather than in the portal.
 
 ### 2. Install the plugin into OpenClaw
 
-Link this plugin directory into your OpenClaw install (adds the load path and a
-`plugins.entries.svix-openclaw` entry):
+Clone the repo and link this plugin directory into your OpenClaw install (adds
+the load path and a `plugins.entries.svix-openclaw` entry):
 
 ```bash
-openclaw plugins install --link /path/to/svix/ai/plugins/svix-openclaw
+git clone https://github.com/svix/ai.git
+openclaw plugins install --link ./ai/plugins/svix-openclaw
 ```
 
 ### 3. Configure routes (and enable hooks for wake/agent)

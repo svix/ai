@@ -20,11 +20,12 @@ from the route's event filters, then loops `receive()` → dispatch →
 
 ## Install
 
-Drop this directory into one of Hermes' plugin locations:
+Clone the repo and drop this directory into one of Hermes' plugin locations:
 
 ```bash
+git clone https://github.com/svix/ai.git
 # user-level
-cp -r plugins/svix-hermes ~/.hermes/plugins/svix-hermes
+cp -r ai/plugins/svix-hermes ~/.hermes/plugins/svix-hermes
 ```
 
 Install the Svix SDK (AutoConfig consumer support landed in 1.96.0):
