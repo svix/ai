@@ -1,7 +1,12 @@
-import { Svix } from "svix";
+import { AutoConfigConsumer } from "svix";
 import type { PluginLogger } from "../api.js";
 import { resolveConfiguredSecretInputString, type OpenClawConfig } from "../runtime-api.js";
 import type { ResolvedPoller } from "./config.js";
+
+// `SinkInCommon` and the poll-options type are not re-exported from the `svix`
+// package root, so derive them from the `AutoConfigConsumer` signature.
+type SinkIn = ConstructorParameters<typeof AutoConfigConsumer>[1];
+type ReceiveOptions = NonNullable<Parameters<AutoConfigConsumer["receive"]>[1]>;
 
 export type WebhookPoller = {
   start: () => void;
@@ -41,12 +46,32 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+// Sink-provisioning config passed to `subscribe()`. Only includes fields that
+// have real values so the SDK omits the rest (an explicit `null` would be
+// emitted and rejected by the server).
+function buildSinkIn(poller: ResolvedPoller): SinkIn {
+  const sink: SinkIn = {};
+  if (poller.filterTypes) {
+    sink.filterTypes = poller.filterTypes;
+  }
+  if (poller.channels) {
+    sink.channels = poller.channels;
+  }
+  return sink;
+}
+
 /**
  * One long-lived poller per configured endpoint. Instead of OpenClaw exposing an
- * inbound HTTP route, this reads a Svix Polling Endpoint with the official Svix
- * SDK (`svix.message.poller.poll`) and hands each buffered message's payload to
- * the supplied `dispatch` callback — which either applies it as a TaskFlow
- * action or POSTs it to a gateway hook (`/hooks/wake`, `/hooks/agent`).
+ * inbound HTTP route, this drains a Svix polling sink with the official SDK's
+ * `AutoConfigConsumer` and hands each buffered message's payload to the supplied
+ * `dispatch` callback — which either applies it as a TaskFlow action or POSTs it
+ * to a gateway hook (`/hooks/wake`, `/hooks/agent`).
+ *
+ * The consumer is offset/lease based: `receive()` leases a batch, and once it
+ * is dispatched `commit()` acks every message up to the highest offset and
+ * releases the lease so the next `receive()` returns the following batch. The
+ * cursor lives server-side under a deterministic `consumerId`, so a restart
+ * resumes where it left off.
  */
 export function createWebhookPoller(params: {
   poller: ResolvedPoller;
@@ -56,12 +81,6 @@ export function createWebhookPoller(params: {
 }): WebhookPoller {
   const { poller, cfg, logger, dispatch } = params;
   const controller = new AbortController();
-  // The Svix polling cursor is kept in memory only (seeded from optional
-  // `startIterator`). It is intentionally NOT persisted: on a gateway
-  // restart/reload the poller re-initializes and the cursor resets, per the
-  // documented Svix polling-endpoint flow
-  // (https://docs.svix.com/receiving/using-app-portal/polling-endpoints).
-  let iterator = poller.startIterator;
   let stopped = false;
   let loop: Promise<void> | undefined;
 
@@ -78,27 +97,62 @@ export function createWebhookPoller(params: {
     return resolved.value;
   }
 
+  // Build a consumer for the current (possibly rotated) token. Cheap: it just
+  // decodes the AutoConfig token and builds an HTTP request context.
+  async function makeConsumer(): Promise<AutoConfigConsumer | undefined> {
+    const token = await resolveToken();
+    if (!token) {
+      logger.warn?.(`[svix-openclaw] ${poller.label} skipped: token unresolved`);
+      return undefined;
+    }
+    return new AutoConfigConsumer(token, buildSinkIn(poller));
+  }
+
   function extractAction(message: Record<string, unknown>): unknown {
     return poller.payloadField ? message[poller.payloadField] : message;
   }
 
-  // Returns whether the Polling Endpoint reports the backlog is drained.
+  // Provision the polling sink so the plugin self-configures instead of relying
+  // on a sink created by hand in the portal. Best-effort: a failure (e.g. the
+  // sink already exists and is managed elsewhere) is logged and polling
+  // continues.
+  async function provision(): Promise<void> {
+    if (!poller.subscribe) {
+      return;
+    }
+    const consumer = await makeConsumer();
+    if (!consumer) {
+      return;
+    }
+    try {
+      await consumer.subscribe();
+      logger.info?.(`[svix-openclaw] ${poller.label} provisioned polling sink`);
+    } catch (err) {
+      logger.warn?.(
+        `[svix-openclaw] ${poller.label} subscribe failed (continuing): ${String(err)}`,
+      );
+    }
+  }
+
+  // Returns whether the sink reports the backlog is drained.
   async function pollOnce(): Promise<boolean> {
-    // Resolve per poll so rotating SecretRef tokens are picked up.
-    const token = await resolveToken();
-    if (!token) {
-      logger.warn?.(`[svix-openclaw] ${poller.label} skipped poll: token unresolved`);
+    const consumer = await makeConsumer();
+    if (!consumer) {
       return true;
     }
 
-    const svix = new Svix(token, poller.serverUrl ? { serverUrl: poller.serverUrl } : {});
-    const res = await svix.message.poller.poll(poller.appId, poller.sinkId, {
+    const options: ReceiveOptions = {
       limit: poller.limit,
-      ...(iterator ? { iterator } : {}),
-      ...(poller.eventType ? { eventType: poller.eventType } : {}),
-      ...(poller.channel ? { channel: poller.channel } : {}),
-    });
+      ...(poller.leaseDurationMs ? { leaseDurationMs: poller.leaseDurationMs } : {}),
+      ...(poller.startingPosition
+        ? { startingPosition: poller.startingPosition as ReceiveOptions["startingPosition"] }
+        : {}),
+    };
+    const res = await consumer.receive(poller.consumerId, options);
 
+    // Track the highest offset we actually processed so the commit acks exactly
+    // the messages we dispatched and releases the lease.
+    let maxOffset: number | undefined;
     for (const message of res.data) {
       if (stopped) {
         break;
@@ -120,21 +174,26 @@ export function createWebhookPoller(params: {
             `${outcome.code ?? "error"} ${outcome.error ?? ""}`.trim(),
         );
       }
+      if (maxOffset === undefined || message.offset > maxOffset) {
+        maxOffset = message.offset;
+      }
     }
 
-    // Advance the cursor so the next poll continues past what we just drained.
-    if (res.iterator) {
-      iterator = res.iterator;
+    // Ack everything we dispatched (advances the cursor past this batch) and
+    // release the lease so the next receive() returns the following batch.
+    if (maxOffset !== undefined) {
+      await consumer.commit(poller.consumerId, maxOffset);
     }
     return res.done;
   }
 
   async function run(): Promise<void> {
+    await provision();
     while (!stopped) {
       try {
         const done = await pollOnce();
         // When caught up, idle for the configured interval; otherwise keep
-        // paging through the backlog immediately.
+        // draining the backlog immediately.
         if (done && !stopped) {
           await sleep(poller.pollIntervalMs, controller.signal);
         }
@@ -154,7 +213,7 @@ export function createWebhookPoller(params: {
         return;
       }
       logger.info?.(
-        `[svix-openclaw] polling Svix app=${poller.appId} sink=${poller.sinkId} ` +
+        `[svix-openclaw] polling Svix consumer=${poller.consumerId} ` +
           `-> ${poller.kind} (poller ${poller.label})`,
       );
       loop = run();
