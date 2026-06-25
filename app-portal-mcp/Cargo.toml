@@ -1,0 +1,19 @@
+[package]
+name = "app-portal-mcp"
+version = "0.1.0"
+edition = "2024"
+description = "MCP server for debugging Svix webhook delivery problems"
+
+[dependencies]
+rmcp = { version = "1.8", features = ["server", "transport-io", "macros", "schemars", "transport-streamable-http-server"] }
+svix = "1.96"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-std", "signal"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+axum = "0.8"
+http = "1"
+form_urlencoded = "1"
