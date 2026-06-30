@@ -9,10 +9,12 @@ use rmcp::{
     service::RequestContext,
     tool, tool_handler, tool_router,
 };
+use js_option::JsOption;
 use serde::Deserialize;
 use svix::api::{
-    EndpointGetStatsOptions, EndpointListOptions, MessageAttemptListByEndpointOptions,
-    MessageAttemptListByMsgOptions, MessageListOptions, MessageStatus, Svix,
+    EndpointGetStatsOptions, EndpointListOptions, EndpointTransformationPatch,
+    MessageAttemptListByEndpointOptions, MessageAttemptListByMsgOptions, MessageListOptions,
+    MessageStatus, Svix,
 };
 
 const DEFAULT_LIMIT: i32 = 20;
@@ -132,6 +134,17 @@ pub(crate) struct RecoverArgs {
     pub since: String,
 }
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub(crate) struct UpdateTransformationArgs {
+    /// The endpoint ID or UID (e.g. `ep_...`).
+    pub endpoint_id: String,
+    /// The transformation code (a JavaScript `handler` function). Omit to leave
+    /// the code unchanged.
+    pub code: Option<String>,
+    /// Whether the transformation is enabled. Omit to leave unchanged.
+    pub enabled: Option<bool>,
+}
+
 #[tool_router]
 impl SvixDebugServer {
     /// stdio mode: static client and app id from the environment.
@@ -229,6 +242,51 @@ impl SvixDebugServer {
         let res = svix
             .endpoint()
             .get_stats(self.app_id(&ctx)?, args.endpoint_id, Some(options))
+            .await;
+        to_result(res)
+    }
+
+    #[tool(
+        description = "Get the transformation configured for an endpoint: its JavaScript code, whether it is enabled, and its variables. Transformations rewrite the payload before delivery, so a broken or disabled transformation is a common cause of malformed or missing webhooks."
+    )]
+    async fn get_transformation(
+        &self,
+        Parameters(args): Parameters<EndpointArgs>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, McpError> {
+        let svix = self.client(&ctx)?;
+        let res = svix
+            .endpoint()
+            .transformation_get(self.app_id(&ctx)?, args.endpoint_id)
+            .await;
+        to_result(res)
+    }
+
+    #[tool(
+        description = "Update an endpoint's transformation: set its JavaScript `code` and/or toggle `enabled`. Omitted fields are left unchanged. This modifies the live endpoint configuration, so only call it when the user has asked to change the transformation. Returns the updated transformation."
+    )]
+    async fn update_transformation(
+        &self,
+        Parameters(args): Parameters<UpdateTransformationArgs>,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, McpError> {
+        let svix = self.client(&ctx)?;
+        let app_id = self.app_id(&ctx)?;
+        let patch = EndpointTransformationPatch {
+            code: args.code.map_or(JsOption::Undefined, JsOption::Some),
+            enabled: args.enabled,
+            variables: JsOption::Undefined,
+        };
+        if let Err(e) = svix
+            .endpoint()
+            .patch_transformation(app_id.clone(), args.endpoint_id.clone(), patch)
+            .await
+        {
+            return to_result(Err::<(), _>(e));
+        }
+        let res = svix
+            .endpoint()
+            .transformation_get(app_id, args.endpoint_id)
             .await;
         to_result(res)
     }

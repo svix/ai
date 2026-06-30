@@ -47,6 +47,8 @@ transports.
 | `list_endpoints`             | List the application's endpoints (URL, enabled state, filtered event types).      |
 | `get_endpoint`               | Full configuration of one endpoint.                                              |
 | `get_endpoint_stats`         | Success / fail / pending / sending counts over a time window.                     |
+| `get_transformation`         | An endpoint's transformation code, enabled state, and variables.                  |
+| `update_transformation`      | Set an endpoint's transformation code and/or toggle it on/off (modifies config).  |
 | `list_messages`              | List messages sent to the application (filter by event type, channel, time).      |
 | `list_attempts_by_endpoint`  | Delivery attempts for an endpoint (filter `status=fail`), with response bodies.   |
 | `list_attempts_by_message`   | Every endpoint a single message was attempted against and how each responded.     |
@@ -55,5 +57,7 @@ transports.
 | `resend_message`             | Resend one message to an endpoint (real delivery).                               |
 | `recover_endpoint`           | Replay all failed messages for an endpoint since a date (real deliveries).        |
 
-> `resend_message` and `recover_endpoint` perform real deliveries. Only invoke
-> them when the user explicitly asks to resend or recover.
+> `resend_message` and `recover_endpoint` perform real deliveries, and
+> `update_transformation` modifies the live endpoint configuration. Only invoke
+> them when the user explicitly asks to resend, recover, or change the
+> transformation.
