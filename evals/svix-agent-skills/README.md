@@ -1,7 +1,9 @@
 # Svix Agent Skills Evals
 
-These JSONL cases describe expected behavior for agents using the Svix plugin
-Skills across Codex, Claude, Copilot, and similar harnesses.
+These JSONL cases are seed eval cases for external agent harness validation.
+They are not run by Svix at runtime and are not part of this repository's
+application test suite. A maintainer or downstream harness can use them when
+checking whether an agent followed the Svix Skills correctly.
 
 The plugin is the installable package for an agent workspace. Each Skill is one
 focused `SKILL.md` workflow inside that plugin. The evals cover webhook dispatch,
@@ -17,15 +19,4 @@ tenant identifiers, tool arguments, or model outputs as telemetry.
 while IFS= read -r line; do
   printf '%s\n' "$line" | jq -e . >/dev/null
 done < evals/svix-agent-skills/cases.jsonl
-```
-
-## Telvine Packaging
-
-If this plugin is published through Telvine, publish the repository as the
-plugin and treat the Svix Skills as plugin components:
-
-```bash
-npm i -g telvine
-telvine login
-telvine publish .
 ```

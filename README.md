@@ -35,20 +35,9 @@ directory and keeps Svix-specific integration guidance inside the individual
 
 Expected agent behavior is documented in `evals/svix-agent-skills/cases.jsonl`.
 The cases cover Dispatch planning, webhook receiver review, and CLI quickstart
-verification. They also document privacy boundaries for telemetry: do not emit
+verification. They also document privacy boundaries: do not emit
 prompts, source files, webhook payloads, API keys, signing secrets, tenant
 identifiers, tool arguments, or model outputs.
-
-## Telvine packaging
-
-If this plugin is published through Telvine, publish the repository as the plugin
-and treat each Svix Skill as a plugin component:
-
-```bash
-npm i -g telvine
-telvine login
-telvine publish .
-```
 
 ## License
 
