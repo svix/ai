@@ -28,14 +28,14 @@ enum ClientSource {
 }
 
 #[derive(Clone)]
-pub struct SvixDebugServer {
+pub(crate) struct SvixDebugServer {
     source: ClientSource,
     #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct ListEndpointsArgs {
+pub(crate) struct ListEndpointsArgs {
     /// Max number of endpoints to return. Defaults to 20.
     pub limit: Option<i32>,
     /// Pagination iterator returned by a previous call.
@@ -43,13 +43,13 @@ pub struct ListEndpointsArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct EndpointArgs {
+pub(crate) struct EndpointArgs {
     /// The endpoint ID or UID (e.g. `ep_...`).
     pub endpoint_id: String,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct EndpointStatsArgs {
+pub(crate) struct EndpointStatsArgs {
     /// The endpoint ID or UID (e.g. `ep_...`).
     pub endpoint_id: String,
     /// Start of the window, an RFC3339 date string. Defaults to 7 days ago.
@@ -59,7 +59,7 @@ pub struct EndpointStatsArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct ListMessagesArgs {
+pub(crate) struct ListMessagesArgs {
     /// Only include messages of these event types.
     pub event_types: Option<Vec<String>>,
     /// Only include messages sent on this channel.
@@ -75,7 +75,7 @@ pub struct ListMessagesArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct AttemptsByEndpointArgs {
+pub(crate) struct AttemptsByEndpointArgs {
     /// The endpoint ID or UID (e.g. `ep_...`).
     pub endpoint_id: String,
     /// Filter by delivery status. One of `success`, `pending`, `fail`,
@@ -92,7 +92,7 @@ pub struct AttemptsByEndpointArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct AttemptsByMessageArgs {
+pub(crate) struct AttemptsByMessageArgs {
     /// The message ID (e.g. `msg_...`).
     pub msg_id: String,
     /// Filter by delivery status. One of `success`, `pending`, `fail`,
@@ -103,13 +103,13 @@ pub struct AttemptsByMessageArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct GetMessageArgs {
+pub(crate) struct GetMessageArgs {
     /// The message ID (e.g. `msg_...`).
     pub msg_id: String,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct GetAttemptArgs {
+pub(crate) struct GetAttemptArgs {
     /// The message ID (e.g. `msg_...`).
     pub msg_id: String,
     /// The message attempt ID (e.g. `atmpt_...`).
@@ -117,7 +117,7 @@ pub struct GetAttemptArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct ResendArgs {
+pub(crate) struct ResendArgs {
     /// The message ID (e.g. `msg_...`).
     pub msg_id: String,
     /// The endpoint ID or UID to resend the message to (e.g. `ep_...`).
@@ -125,7 +125,7 @@ pub struct ResendArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct RecoverArgs {
+pub(crate) struct RecoverArgs {
     /// The endpoint ID or UID to recover (e.g. `ep_...`).
     pub endpoint_id: String,
     /// Replay all failed messages since this RFC3339 date string.
@@ -135,7 +135,7 @@ pub struct RecoverArgs {
 #[tool_router]
 impl SvixDebugServer {
     /// stdio mode: static client and app id from the environment.
-    pub fn new(svix: Svix, app_id: String) -> Self {
+    pub(crate) fn new(svix: Svix, app_id: String) -> Self {
         Self {
             source: ClientSource::Static { svix, app_id },
             tool_router: Self::tool_router(),
@@ -143,7 +143,7 @@ impl SvixDebugServer {
     }
 
     /// HTTP mode: token and app id come per-request from the connection.
-    pub fn with_bearer_header_auth(template: Svix) -> Self {
+    pub(crate) fn with_bearer_header_auth(template: Svix) -> Self {
         Self {
             source: ClientSource::BearerHeader(template),
             tool_router: Self::tool_router(),
@@ -190,7 +190,10 @@ impl SvixDebugServer {
             iterator: args.iterator,
             ..Default::default()
         };
-        let res = svix.endpoint().list(self.app_id(&ctx)?, Some(options)).await;
+        let res = svix
+            .endpoint()
+            .list(self.app_id(&ctx)?, Some(options))
+            .await;
         to_result(res)
     }
 
@@ -203,7 +206,10 @@ impl SvixDebugServer {
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         let svix = self.client(&ctx)?;
-        let res = svix.endpoint().get(self.app_id(&ctx)?, args.endpoint_id).await;
+        let res = svix
+            .endpoint()
+            .get(self.app_id(&ctx)?, args.endpoint_id)
+            .await;
         to_result(res)
     }
 
@@ -315,7 +321,10 @@ impl SvixDebugServer {
         ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         let svix = self.client(&ctx)?;
-        let res = svix.message().get(self.app_id(&ctx)?, args.msg_id, None).await;
+        let res = svix
+            .message()
+            .get(self.app_id(&ctx)?, args.msg_id, None)
+            .await;
         to_result(res)
     }
 
@@ -400,13 +409,16 @@ impl rmcp::ServerHandler for SvixDebugServer {
 }
 
 fn bearer_token(ctx: &RequestContext<RoleServer>) -> Result<String, McpError> {
-    let parts = ctx.extensions.get::<http::request::Parts>().ok_or_else(|| {
-        McpError::invalid_request(
-            "this server requires the Svix token in the Authorization header, but no HTTP \
+    let parts = ctx
+        .extensions
+        .get::<http::request::Parts>()
+        .ok_or_else(|| {
+            McpError::invalid_request(
+                "this server requires the Svix token in the Authorization header, but no HTTP \
              request context was found",
-            None,
-        )
-    })?;
+                None,
+            )
+        })?;
 
     let header = parts
         .headers
@@ -430,12 +442,15 @@ fn bearer_token(ctx: &RequestContext<RoleServer>) -> Result<String, McpError> {
 }
 
 fn app_id_from_request(ctx: &RequestContext<RoleServer>) -> Result<String, McpError> {
-    let parts = ctx.extensions.get::<http::request::Parts>().ok_or_else(|| {
-        McpError::invalid_request(
-            "this server requires the application id, but no HTTP request context was found",
-            None,
-        )
-    })?;
+    let parts = ctx
+        .extensions
+        .get::<http::request::Parts>()
+        .ok_or_else(|| {
+            McpError::invalid_request(
+                "this server requires the application id, but no HTTP request context was found",
+                None,
+            )
+        })?;
 
     let app_id = parts
         .headers

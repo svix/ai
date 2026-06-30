@@ -112,11 +112,11 @@ async fn require_authorization(mut req: axum::extract::Request, next: Next) -> R
         }
     }
 
-    if !req.headers().contains_key(APP_ID_HEADER) {
-        if let Some(value) = param_from_query(&query, "app_id").and_then(|a| a.parse().ok()) {
-            req.headers_mut()
-                .insert(HeaderName::from_static(APP_ID_HEADER), value);
-        }
+    if !req.headers().contains_key(APP_ID_HEADER)
+        && let Some(value) = param_from_query(&query, "app_id").and_then(|a| a.parse().ok())
+    {
+        req.headers_mut()
+            .insert(HeaderName::from_static(APP_ID_HEADER), value);
     }
 
     next.run(req).await

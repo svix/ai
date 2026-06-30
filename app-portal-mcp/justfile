@@ -24,3 +24,30 @@ run:
     SVIX_SERVER_URL={{svix_server_url}} \
     RUST_LOG={{log}} \
     cargo run --release
+
+# Run `cargo check`.
+check *args='':
+    cargo check --all-targets {{ args }}
+
+# Run `cargo clippy`, denying warnings.
+clippy *args='':
+    cargo clippy --all-targets {{ args }} -- -D warnings
+
+# Format the justfile and the Rust sources (requires nightly rustfmt for the
+# unstable options in .rustfmt.toml).
+fmt:
+    just --fmt --unstable
+    cargo +nightly fmt --all
+
+# A lint check for both this justfile and the Rust sources.
+fmt-check:
+    just --fmt --unstable --check
+    cargo +nightly fmt --all --check
+    cargo sort --check
+
+# Runs formatting, syntax, and idiom checks. Auto-fixes whatever it can, so best
+# to commit first.
+lint-fix: check (clippy "--fix --allow-dirty") fmt
+
+# Runs formatting, syntax, and idiom checks.
+lint: fmt-check check clippy
