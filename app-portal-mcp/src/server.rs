@@ -1,6 +1,7 @@
 //! MCP server for debugging webhook delivery problems for a single Svix
 //! application. The app is fixed for the session, so no tool takes an `app_id`.
 
+use base64::{Engine, engine::general_purpose::STANDARD};
 use js_option::JsOption;
 use rmcp::{
     ErrorData as McpError, RoleServer,
@@ -18,14 +19,24 @@ use svix::api::{
 };
 
 const DEFAULT_LIMIT: i32 = 20;
-const APP_ID_HEADER: &str = "x-svix-app-id";
+
+const MCP_TOKEN_PREFIX: &str = "mcp_v1_";
+
+#[derive(Deserialize)]
+struct McpTokenContent {
+    #[serde(rename = "aid")]
+    app_id: String,
+    #[serde(rename = "tok")]
+    token: String,
+}
 
 /// How the Svix client and application id are obtained for a request.
 #[derive(Clone)]
 enum ClientSource {
     /// stdio mode: static client and app id from `SVIX_TOKEN` / `SVIX_APP_ID`.
     Static { svix: Svix, app_id: String },
-    /// HTTP mode: token and app id read per-request from the connection.
+    /// HTTP mode: the base64 MCP token is read per-request from the
+    /// `Authorization` header and decoded into the API token and app id.
     BearerHeader(Svix),
 }
 
@@ -166,14 +177,16 @@ impl SvixDebugServer {
     fn client(&self, ctx: &RequestContext<RoleServer>) -> Result<Svix, McpError> {
         match &self.source {
             ClientSource::Static { svix, .. } => Ok(svix.clone()),
-            ClientSource::BearerHeader(template) => Ok(template.with_token(bearer_token(ctx)?)),
+            ClientSource::BearerHeader(template) => {
+                Ok(template.with_token(decode_mcp_token(ctx)?.token))
+            }
         }
     }
 
     fn app_id(&self, ctx: &RequestContext<RoleServer>) -> Result<String, McpError> {
         match &self.source {
             ClientSource::Static { app_id, .. } => Ok(app_id.clone()),
-            ClientSource::BearerHeader(_) => app_id_from_request(ctx),
+            ClientSource::BearerHeader(_) => Ok(decode_mcp_token(ctx)?.app_id),
         }
     }
 
@@ -466,14 +479,15 @@ impl rmcp::ServerHandler for SvixDebugServer {
     }
 }
 
-fn bearer_token(ctx: &RequestContext<RoleServer>) -> Result<String, McpError> {
+
+fn decode_mcp_token(ctx: &RequestContext<RoleServer>) -> Result<McpTokenContent, McpError> {
     let parts = ctx
         .extensions
         .get::<http::request::Parts>()
         .ok_or_else(|| {
             McpError::invalid_request(
-                "this server requires the Svix token in the Authorization header, but no HTTP \
-             request context was found",
+                "this server requires the Svix MCP token in the Authorization header, but no HTTP \
+                 request context was found",
                 None,
             )
         })?;
@@ -484,47 +498,27 @@ fn bearer_token(ctx: &RequestContext<RoleServer>) -> Result<String, McpError> {
         .and_then(|v| v.to_str().ok())
         .ok_or_else(|| McpError::invalid_request("missing Authorization header", None))?;
 
-    let token = header
+    let raw = header
         .strip_prefix("Bearer ")
         .or_else(|| header.strip_prefix("bearer "))
         .unwrap_or(header)
         .trim();
 
-    if token.is_empty() {
-        return Err(McpError::invalid_request(
-            "empty bearer token in Authorization header",
+    let encoded = raw.strip_prefix(MCP_TOKEN_PREFIX).ok_or_else(|| {
+        McpError::invalid_request(
+            "invalid Svix MCP token: expected a token beginning with `mcp_v1_` (get one from the \
+             Svix app portal)",
             None,
-        ));
-    }
-    Ok(token.to_string())
-}
+        )
+    })?;
 
-fn app_id_from_request(ctx: &RequestContext<RoleServer>) -> Result<String, McpError> {
-    let parts = ctx
-        .extensions
-        .get::<http::request::Parts>()
-        .ok_or_else(|| {
-            McpError::invalid_request(
-                "this server requires the application id, but no HTTP request context was found",
-                None,
-            )
-        })?;
+    let json = STANDARD.decode(encoded).map_err(|_| {
+        McpError::invalid_request("invalid Svix MCP token: not valid base64", None)
+    })?;
 
-    let app_id = parts
-        .headers
-        .get(APP_ID_HEADER)
-        .and_then(|v| v.to_str().ok())
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| {
-            McpError::invalid_request(
-                "missing application id: pass it as a `?app_id=<app_id>` query parameter or an \
-                 `x-svix-app-id` header",
-                None,
-            )
-        })?;
-
-    Ok(app_id.to_string())
+    serde_json::from_slice::<McpTokenContent>(&json).map_err(|_| {
+        McpError::invalid_request("invalid Svix MCP token: malformed contents", None)
+    })
 }
 
 fn parse_status(status: Option<&str>) -> Result<Option<MessageStatus>, String> {

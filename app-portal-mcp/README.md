@@ -4,8 +4,8 @@ An [MCP](https://modelcontextprotocol.io) server (built with [`rmcp`](https://cr
 for debugging Svix webhook delivery problems: inspecting endpoints, drilling
 into failed attempts, reading customer responses, and replaying messages.
 
-Scoped to **one application** per session. The token is app-scoped and the app
-id is supplied alongside it.
+Scoped to **one application** per session. The token is app-scoped and encodes
+the app id.
 
 ## Connecting your coding agent
 
@@ -23,18 +23,23 @@ cargo build --release
 
 ## Transports
 
-Selected by `MCP_TRANSPORT`. The token and app id are read from the environment
-(`stdio`) or per-request from headers / `?token=` & `?app_id=` query params
-(`http`). A request without a token gets a `401`.
+Selected by `MCP_TRANSPORT`. In `stdio` mode the token and app id come from the
+environment; in `http` mode the MCP token is read per-request from the
+`Authorization: Bearer <token>` header (it also encodes the app id). The server
+is mounted at `/mcp/{slug}`: the path segment is a cosmetic slug (app portal
+display name, environment, and region) that the server ignores (it authenticates
+entirely from the token) but that keeps URLs distinct so you can connect clients
+for several Svix customers, environments, and regions without them colliding. A
+request without a token gets a `401`.
 
-| Variable          | Required   | Description                                                    |
-| ----------------- | ---------- | ------------------------------------------------------------- |
-| `MCP_TRANSPORT`   | no         | `stdio` (default) or `http`.                                  |
-| `SVIX_TOKEN`      | stdio only | Svix API token (region inferred from its suffix).            |
-| `SVIX_APP_ID`     | stdio only | The application id (or UID) this session debugs.             |
-| `MCP_BIND_ADDR`   | no         | HTTP bind address. Defaults to `127.0.0.1:8080`, at `/mcp`.  |
-| `SVIX_SERVER_URL` | no         | Override the API base URL (e.g. `http://localhost:8071`).    |
-| `RUST_LOG`        | no         | Log filter (stderr). Defaults to `info`.                     |
+| Variable          | Required   | Description                                                         |
+| ----------------- | ---------- | ------------------------------------------------------------------ |
+| `MCP_TRANSPORT`   | no         | `stdio` (default) or `http`.                                       |
+| `SVIX_TOKEN`      | stdio only | Svix API token (region inferred from its suffix).                 |
+| `SVIX_APP_ID`     | stdio only | The application id (or UID) this session debugs.                  |
+| `MCP_BIND_ADDR`   | no         | HTTP bind address. Defaults to `127.0.0.1:8080`, at `/mcp/{slug}`.   |
+| `SVIX_SERVER_URL` | no         | Override the API base URL (e.g. `http://localhost:8071`).         |
+| `RUST_LOG`        | no         | Log filter (stderr). Defaults to `info`.                          |
 
 See [INSTALL.md](./INSTALL.md) for client configuration examples for both
 transports.

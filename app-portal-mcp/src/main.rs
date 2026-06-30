@@ -1,6 +1,7 @@
 //! Entry point. Transport is selected by `MCP_TRANSPORT` (`stdio` default, or
 //! `http`). stdio reads `SVIX_TOKEN` / `SVIX_APP_ID` from the environment; http
-//! reads them per-request as headers or `?token=` / `?app_id=` query params.
+//! reads the Svix MCP token per-request from the `Authorization: Bearer <token>`
+//! header (the token also encodes the application id).
 //! `SVIX_SERVER_URL` optionally overrides the API base URL.
 
 mod server;
@@ -10,7 +11,7 @@ use axum::{
     middleware::{Next, from_fn},
     response::{IntoResponse, Response},
 };
-use http::{HeaderName, StatusCode, header};
+use http::{StatusCode, header};
 use rmcp::{
     ServiceExt,
     transport::{
@@ -70,14 +71,18 @@ async fn run_http() -> anyhow::Result<()> {
         Default::default(),
     );
 
+    // The slug segment is a cosmetic alias so a user can connect MCP clients for
+    // several Svix customers, environments, and regions without the URLs
+    // colliding; it is ignored by the server, which authenticates entirely from
+    // the bearer token.
     let app = axum::Router::new()
-        .nest_service("/mcp", service)
+        .nest_service("/mcp/{slug}", service)
         .layer(from_fn(require_authorization));
 
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .with_context(|| format!("failed to bind {addr}"))?;
-    tracing::info!("starting svix-app-portal-mcp over HTTP on http://{addr}/mcp");
+    tracing::info!("starting svix-app-portal-mcp over HTTP on http://{addr}/mcp/{{slug}}");
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async {
@@ -88,45 +93,20 @@ async fn run_http() -> anyhow::Result<()> {
     Ok(())
 }
 
-const APP_ID_HEADER: &str = "x-svix-app-id";
-
-/// Require a token (401 if absent); forward the app id when present. Both are
-/// read from headers or `?token=` / `?app_id=` query params and normalized into
-/// headers for the rest of the server.
-async fn require_authorization(mut req: axum::extract::Request, next: Next) -> Response {
-    let query = req.uri().query().unwrap_or("").to_owned();
-
+/// Require a token (401 if absent). The token is the base64 MCP token issued by
+/// the Svix app portal, passed as `Authorization: Bearer <token>`; it is decoded
+/// per request (see `server`) to obtain the API token and application id.
+async fn require_authorization(req: axum::extract::Request, next: Next) -> Response {
     if !req.headers().contains_key(header::AUTHORIZATION) {
-        match param_from_query(&query, "token").and_then(|t| format!("Bearer {t}").parse().ok()) {
-            Some(value) => {
-                req.headers_mut().insert(header::AUTHORIZATION, value);
-            }
-            None => {
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    [(header::WWW_AUTHENTICATE, r#"Bearer realm="svix-app-portal-mcp""#)],
-                    "missing Svix token: pass it as `Authorization: Bearer <token>` or a `?token=<token>` query parameter",
-                )
-                    .into_response();
-            }
-        }
-    }
-
-    if !req.headers().contains_key(APP_ID_HEADER)
-        && let Some(value) = param_from_query(&query, "app_id").and_then(|a| a.parse().ok())
-    {
-        req.headers_mut()
-            .insert(HeaderName::from_static(APP_ID_HEADER), value);
+        return (
+            StatusCode::UNAUTHORIZED,
+            [(header::WWW_AUTHENTICATE, r#"Bearer realm="svix-app-portal-mcp""#)],
+            "missing Svix token: pass it as `Authorization: Bearer <token>`",
+        )
+            .into_response();
     }
 
     next.run(req).await
-}
-
-fn param_from_query(query: &str, key: &str) -> Option<String> {
-    form_urlencoded::parse(query.as_bytes())
-        .find(|(k, _)| k == key)
-        .map(|(_, v)| v.into_owned())
-        .filter(|v| !v.is_empty())
 }
 
 fn svix_options() -> SvixOptions {

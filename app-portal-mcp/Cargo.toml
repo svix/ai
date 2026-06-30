@@ -7,7 +7,7 @@ description = "MCP server for debugging Svix webhook delivery problems"
 [dependencies]
 anyhow = "1"
 axum = "0.8"
-form_urlencoded = "1"
+base64 = "0.22"
 http = "1"
 js_option = "0.1"
 rmcp = { version = "1.8", features = ["server", "transport-io", "macros", "schemars", "transport-streamable-http-server"] }

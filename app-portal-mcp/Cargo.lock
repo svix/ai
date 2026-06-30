@@ -32,7 +32,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
- "form_urlencoded",
+ "base64 0.22.1",
  "http 1.4.2",
  "js_option",
  "rmcp",
