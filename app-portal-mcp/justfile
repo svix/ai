@@ -20,9 +20,9 @@ build:
 # Connect a client to http://{{bind_addr}}/mcp?token=<token>.
 run:
     MCP_TRANSPORT=http \
-    MCP_BIND_ADDR={{bind_addr}} \
-    SVIX_SERVER_URL={{svix_server_url}} \
-    RUST_LOG={{log}} \
+    MCP_BIND_ADDR={{ bind_addr }} \
+    SVIX_SERVER_URL={{ svix_server_url }} \
+    RUST_LOG={{ log }} \
     cargo run --release
 
 # Run `cargo check`.

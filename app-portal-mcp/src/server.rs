@@ -1,6 +1,7 @@
 //! MCP server for debugging webhook delivery problems for a single Svix
 //! application. The app is fixed for the session, so no tool takes an `app_id`.
 
+use js_option::JsOption;
 use rmcp::{
     ErrorData as McpError, RoleServer,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
@@ -9,7 +10,6 @@ use rmcp::{
     service::RequestContext,
     tool, tool_handler, tool_router,
 };
-use js_option::JsOption;
 use serde::Deserialize;
 use svix::api::{
     EndpointGetStatsOptions, EndpointListOptions, EndpointTransformationPatch,
