@@ -1,8 +1,8 @@
 """Copy of the webhook delivery functions from Hermes' built-in webhook
 adapter (``gateway/platforms/webhook.py``).
 
-The functions below are copied from the upstream adapter and packaged as a mixin so 
-the Svix plugin installs into a stock Hermes checkout without modifying it. 
+The functions below are copied from the upstream adapter and packaged as a mixin so
+the Svix plugin installs into a stock Hermes checkout without modifying it.
 Plugin-specific deviations (the ``[svix]`` log tag, ``{__event__}`` placeholder, unresolved
 deliver_extra placeholder warnings, and the extracted ``_inject_skill``
 helper) are kept minimal so the file stays diffable against upstream.
@@ -104,7 +104,7 @@ class WebhookDeliveryMixin:
                     logger.warning(
                         "%s deliver_extra.%s still contains unresolved "
                         "placeholder(s) %s after rendering (payload path "
-                        "missing?); delivery may be mis-routed. Rendered "
+                        "missing?); delivery may be misrouted. Rendered "
                         "value: %r",
                         _LOG_TAG, key, unresolved, out,
                     )

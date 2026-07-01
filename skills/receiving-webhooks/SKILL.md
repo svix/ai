@@ -3,7 +3,7 @@ name: receiving-webhooks
 description: >-
   General guidelines for building a robust webhook receiver/handler:
   verifying signatures, raw-body access, replay protection, async processing,
-  retries and endpoint auto-disabling. Use whenever you write, review, 
+  retries and endpoint auto-disabling. Use whenever you write, review,
   or debug a handler that consumes incoming webhooks from any provider.
 ---
 

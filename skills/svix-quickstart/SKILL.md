@@ -141,7 +141,7 @@ await svix.endpoint.create("customer-123", {
 ## Next Steps
 
 - Full per-language reference → <https://docs.svix.com/quickstart.md>
-- Verifying signatures, Channels, App Portal embedding, idempotency, Ingest 
+- Verifying signatures, Channels, App Portal embedding, idempotency, Ingest
   <https://docs.svix.com/overview.md>
 
 ## Checklist

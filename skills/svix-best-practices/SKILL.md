@@ -28,7 +28,7 @@ Read the relevant reference file before answering any integration question or wr
 
 ## Key documentation
 
-When reading live docs, ensure to add `.md` to the end of each path to get the markdown version 
+When reading live docs, ensure to add `.md` to the end of each path to get the markdown version
 When the user's request does not clearly fit a single domain above, consult:
 
 - [Quickstart](https://docs.svix.com/quickstart) — Start here when designing any integration.

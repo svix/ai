@@ -3,16 +3,9 @@ label: Svix
 kind: platform
 version: 1.0.0
 description: >
-  Svix gateway adapter for Hermes Agent.  Consumes webhook events through
-  Svix's polling-endpoint AutoConfig API (the SDK's ``AutoConfigConsumer``)
-  instead of hosting a public HTTP server, so Hermes can receive webhooks
-  from behind NAT / on restricted networks.  Each route holds one
-  ``auto_v1_*`` AutoConfig token; the plugin self-provisions the polling
-  endpoint and drains it with subscribe/receive/commit.  Events flow through
-  the same route → prompt → delivery pipeline as the built-in ``webhook``
-  adapter.  Requires ``svix>=1.96.0`` (``pip install 'svix>=1.96.0'``).
-author: Svix (https://www.svix.com)
+  Svix gateway adapter for Hermes Agent.  Consumes webhook events through Svix's polling-endpoint AutoConfig API (the SDK's ``AutoConfigConsumer``) instead of hosting a public HTTP server, so Hermes can receive webhooks from behind NAT / on restricted networks.  Each route holds one ``auto_v1_*`` AutoConfig token; the plugin self-provisions the polling endpoint and drains it with subscribe/receive/commit.  Events flow through the same route → prompt → delivery pipeline as the built-in ``webhook`` adapter.  Requires ``svix>=1.96.0`` (``pip install 'svix>=1.96.0'``).
 
+author: Svix (https://www.svix.com)
 # Svix is configured per-route under ``platforms.svix.extra.routes`` in
 # config.yaml — each route carries its own endpoint-scoped token, so there
 # are no globally-required env vars.  These optional vars cover the
@@ -32,19 +25,19 @@ optional_env:
     password: false
   - name: SVIX_ALLOW_ALL_USERS
     description: >
-      Authorize every route's synthetic svix:<route> user (default: true).
-      Set to false to enforce SVIX_ALLOWED_USERS.
+      Authorize every route's synthetic svix:<route> user (default: true). Set to false to enforce SVIX_ALLOWED_USERS.
+
     prompt: "Allow all users? (true/false)"
     password: false
   - name: SVIX_ALLOWED_USERS
     description: >
-      Comma-separated allowlist of svix:<route> identities. Only honored when
-      SVIX_ALLOW_ALL_USERS=false (the host checks allow-all first).
+      Comma-separated allowlist of svix:<route> identities. Only honored when SVIX_ALLOW_ALL_USERS=false (the host checks allow-all first).
+
     prompt: "Allowed users (svix:<route>, comma-separated)"
     password: false
   - name: SVIX_HOME_CHANNEL
     description: >
-      Home channel for cross-platform/cron delivery. Defaulted to "-" so the
-      host's one-time /sethome notice isn't posted to route deliver targets.
+      Home channel for cross-platform/cron delivery. Defaulted to "-" so the host's one-time /sethome notice isn't posted to route deliver targets.
+
     prompt: "Home channel"
     password: false

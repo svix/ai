@@ -16,12 +16,12 @@ Create one from the [Svix dashboard](https://dashboard.svix.com) under
 1. Add the name 'github-prs' or whatever you prefer
 2. Keep 'Source Type' as Webhooks
 
-### 1.2 Create Source UI - Step 2 
+### 1.2 Create Source UI - Step 2
 
 1. Change from 'Generic Webhooks' to 'Github'
 2. Click 'Enable Authentication'
 3. Add a Secret (store it because you are going to need it later)
- 
+
 ## Step 3 Create an AutoConfig Endpoint Destination
 
 1. Go to the Destinations Tab and Click 'Add Endpoint'
