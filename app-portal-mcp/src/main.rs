@@ -100,7 +100,10 @@ async fn require_authorization(req: axum::extract::Request, next: Next) -> Respo
     if !req.headers().contains_key(header::AUTHORIZATION) {
         return (
             StatusCode::UNAUTHORIZED,
-            [(header::WWW_AUTHENTICATE, r#"Bearer realm="svix-app-portal-mcp""#)],
+            [(
+                header::WWW_AUTHENTICATE,
+                r#"Bearer realm="svix-app-portal-mcp""#,
+            )],
             "missing Svix token: pass it as `Authorization: Bearer <token>`",
         )
             .into_response();

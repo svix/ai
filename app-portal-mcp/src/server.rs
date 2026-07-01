@@ -479,7 +479,6 @@ impl rmcp::ServerHandler for SvixDebugServer {
     }
 }
 
-
 fn decode_mcp_token(ctx: &RequestContext<RoleServer>) -> Result<McpTokenContent, McpError> {
     let parts = ctx
         .extensions
@@ -512,13 +511,12 @@ fn decode_mcp_token(ctx: &RequestContext<RoleServer>) -> Result<McpTokenContent,
         )
     })?;
 
-    let json = STANDARD.decode(encoded).map_err(|_| {
-        McpError::invalid_request("invalid Svix MCP token: not valid base64", None)
-    })?;
+    let json = STANDARD
+        .decode(encoded)
+        .map_err(|_| McpError::invalid_request("invalid Svix MCP token: not valid base64", None))?;
 
-    serde_json::from_slice::<McpTokenContent>(&json).map_err(|_| {
-        McpError::invalid_request("invalid Svix MCP token: malformed contents", None)
-    })
+    serde_json::from_slice::<McpTokenContent>(&json)
+        .map_err(|_| McpError::invalid_request("invalid Svix MCP token: malformed contents", None))
 }
 
 fn parse_status(status: Option<&str>) -> Result<Option<MessageStatus>, String> {
