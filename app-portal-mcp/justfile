@@ -1,0 +1,53 @@
+# Svix App Portal MCP dev tasks.
+# Run `just` to list recipes.
+
+# Local Svix dev server the MCP makes API calls against.
+svix_server_url := "http://localhost:8071"
+# Address the MCP HTTP server binds to (served at /mcp).
+bind_addr := "127.0.0.1:8080"
+# Log filter (logs go to stderr).
+log := "info"
+
+# List available recipes.
+default:
+    @just --list
+
+# Build the release binary.
+build:
+    cargo build --release
+
+# Run the MCP server in HTTP mode against the local dev server.
+# Connect a client to http://{{bind_addr}}/mcp?token=<token>.
+run:
+    MCP_TRANSPORT=http \
+    MCP_BIND_ADDR={{ bind_addr }} \
+    SVIX_SERVER_URL={{ svix_server_url }} \
+    RUST_LOG={{ log }} \
+    cargo run --release
+
+# Run `cargo check`.
+check *args='':
+    cargo check --all-targets {{ args }}
+
+# Run `cargo clippy`, denying warnings.
+clippy *args='':
+    cargo clippy --all-targets {{ args }} -- -D warnings
+
+# Format the justfile and the Rust sources (requires nightly rustfmt for the
+# unstable options in .rustfmt.toml).
+fmt:
+    just --fmt --unstable
+    cargo +nightly fmt --all
+
+# A lint check for both this justfile and the Rust sources.
+fmt-check:
+    just --fmt --unstable --check
+    cargo +nightly fmt --all --check
+    cargo sort --check
+
+# Runs formatting, syntax, and idiom checks. Auto-fixes whatever it can, so best
+# to commit first.
+lint-fix: check (clippy "--fix --allow-dirty") fmt
+
+# Runs formatting, syntax, and idiom checks.
+lint: fmt-check check clippy
