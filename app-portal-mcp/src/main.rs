@@ -1,7 +1,9 @@
 //! Entry point. Transport is selected by `MCP_TRANSPORT` (`stdio` default, or
-//! `http`). stdio reads `SVIX_TOKEN` / `SVIX_APP_ID` from the environment; http
-//! reads the Svix MCP token per-request from the `Authorization: Bearer <token>`
-//! header (the token also encodes the application id).
+//! `http`). stdio reads `SVIX_TOKEN` / `SVIX_APP_ID` from the environment, plus
+//! an optional `SVIX_CUSTOMER_NAME` used to tailor the server's instructions and
+//! triggers to that customer; http reads the Svix MCP token per-request from the
+//! `Authorization: Bearer <token>` header (the token also encodes the
+//! application id and the customer name).
 //! `SVIX_SERVER_URL` optionally overrides the API base URL.
 
 mod server;
@@ -47,11 +49,16 @@ async fn run_stdio() -> anyhow::Result<()> {
     let app_id = std::env::var("SVIX_APP_ID").context(
         "SVIX_APP_ID environment variable must be set to the application this token debugs",
     )?;
+    // Optional: names the customer/brand this session debugs (e.g. "Acme") so
+    // the server advertises customer-specific instructions and triggers.
+    let customer_name = std::env::var("SVIX_CUSTOMER_NAME")
+        .ok()
+        .filter(|s| !s.is_empty());
     let svix = Svix::new(token, Some(svix_options()));
 
     tracing::info!("starting svix-app-portal-mcp over stdio");
 
-    let service = SvixDebugServer::new(svix, app_id)
+    let service = SvixDebugServer::new(svix, app_id, customer_name)
         .serve(stdio())
         .await
         .context("failed to start MCP server")?;

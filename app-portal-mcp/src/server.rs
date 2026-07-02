@@ -6,7 +6,10 @@ use js_option::JsOption;
 use rmcp::{
     ErrorData as McpError, RoleServer,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
-    model::{CallToolResult, Content, Implementation, ServerCapabilities, ServerInfo},
+    model::{
+        CallToolResult, Content, Implementation, InitializeRequestParams, InitializeResult,
+        ServerCapabilities, ServerInfo,
+    },
     schemars,
     service::RequestContext,
     tool, tool_handler, tool_router,
@@ -28,15 +31,26 @@ struct McpTokenContent {
     app_id: String,
     #[serde(rename = "tok")]
     token: String,
+    /// Human-readable customer/brand name the token was issued for (e.g.
+    /// "Acme"). Used to build customer-specific server instructions. Older
+    /// tokens omit it, so it defaults to empty.
+    #[serde(rename = "cust", default)]
+    customer_name: String,
 }
 
 /// How the Svix client and application id are obtained for a request.
 #[derive(Clone)]
 enum ClientSource {
-    /// stdio mode: static client and app id from `SVIX_TOKEN` / `SVIX_APP_ID`.
-    Static { svix: Svix, app_id: String },
+    /// stdio mode: static client and app id from `SVIX_TOKEN` / `SVIX_APP_ID`,
+    /// with the optional customer name from `SVIX_CUSTOMER_NAME`.
+    Static {
+        svix: Svix,
+        app_id: String,
+        customer_name: Option<String>,
+    },
     /// HTTP mode: the base64 MCP token is read per-request from the
-    /// `Authorization` header and decoded into the API token and app id.
+    /// `Authorization` header and decoded into the API token, app id, and
+    /// customer name.
     BearerHeader(Svix),
 }
 
@@ -158,10 +172,15 @@ pub(crate) struct UpdateTransformationArgs {
 
 #[tool_router]
 impl SvixDebugServer {
-    /// stdio mode: static client and app id from the environment.
-    pub(crate) fn new(svix: Svix, app_id: String) -> Self {
+    /// stdio mode: static client, app id, and optional customer name from the
+    /// environment.
+    pub(crate) fn new(svix: Svix, app_id: String, customer_name: Option<String>) -> Self {
         Self {
-            source: ClientSource::Static { svix, app_id },
+            source: ClientSource::Static {
+                svix,
+                app_id,
+                customer_name,
+            },
             tool_router: Self::tool_router(),
         }
     }
@@ -188,6 +207,18 @@ impl SvixDebugServer {
             ClientSource::Static { app_id, .. } => Ok(app_id.clone()),
             ClientSource::BearerHeader(_) => Ok(decode_mcp_token(ctx)?.app_id),
         }
+    }
+
+    /// The customer/brand name this session is scoped to, if known. In stdio
+    /// mode it comes from `SVIX_CUSTOMER_NAME`; in HTTP mode it is decoded from
+    /// the MCP token. Returns `None` when unset or when the token predates the
+    /// field, in which case generic instructions are used.
+    fn customer_name(&self, ctx: &RequestContext<RoleServer>) -> Option<String> {
+        let name = match &self.source {
+            ClientSource::Static { customer_name, .. } => customer_name.clone(),
+            ClientSource::BearerHeader(_) => decode_mcp_token(ctx).ok().map(|c| c.customer_name),
+        };
+        name.filter(|s| !s.is_empty())
     }
 
     #[tool(
@@ -459,24 +490,64 @@ impl SvixDebugServer {
 #[tool_handler]
 impl rmcp::ServerHandler for SvixDebugServer {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(Implementation::new(
-                "svix-app-portal-mcp",
-                env!("CARGO_PKG_VERSION"),
-            ))
-            .with_instructions(
-                "Debug Svix webhook delivery problems for an application. The application \
-                 is fixed for this session, so no tool takes an app id. Confirm which app you are \
-                 debugging with get_application, find the endpoint (list_endpoints / get_endpoint), \
-                 check its health (get_endpoint_stats), then drill into failures with \
-                 list_attempts_by_endpoint (status=fail) or, starting from a specific event, \
-                 list_messages → list_attempts_by_message to read the HTTP status and response body \
-                 the customer's server returned. Inspect the delivered data with get_message / \
-                 get_attempt. Once the customer's endpoint is fixed, resend_message replays one \
-                 message and recover_endpoint replays all failed messages since a date. IDs accept \
-                 either Svix IDs (ep_/msg_) or customer-assigned UIDs.",
-            )
+        // The session-agnostic default. The per-session `initialize` override
+        // below replaces this with customer-specific instructions once the
+        // customer name is known (from the token or `SVIX_CUSTOMER_NAME`).
+        server_info(None)
     }
+
+    /// Override the default `initialize` (which just returns `get_info`) so we
+    /// can tailor the server description and triggers to the customer this
+    /// session is scoped to. In HTTP mode the customer name is decoded from the
+    /// bearer token carried on the request context; in stdio mode it comes from
+    /// the environment.
+    async fn initialize(
+        &self,
+        request: InitializeRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<InitializeResult, McpError> {
+        context.peer.set_peer_info(request);
+        Ok(server_info(self.customer_name(&context).as_deref()))
+    }
+}
+
+/// Build the server info, tailoring the instructions and title to `customer`
+/// (the Svix customer/brand this session debugs, e.g. "Acme") when it is known.
+/// Naming the customer makes agents trigger this server whenever the user is
+/// working with that customer's webhooks — mentioning the customer, or working
+/// in a codebase that integrates its webhooks.
+fn server_info(customer: Option<&str>) -> ServerInfo {
+    // The workflow guidance is the same regardless of customer.
+    const WORKFLOW: &str = "The application is fixed for this session, so no tool takes an app id. \
+        Confirm which app you are debugging with get_application, find the endpoint (list_endpoints \
+        / get_endpoint), check its health (get_endpoint_stats), then drill into failures with \
+        list_attempts_by_endpoint (status=fail) or, starting from a specific event, list_messages → \
+        list_attempts_by_message to read the HTTP status and response body the customer's server \
+        returned. Inspect the delivered data with get_message / get_attempt. Once the customer's \
+        endpoint is fixed, resend_message replays one message and recover_endpoint replays all \
+        failed messages since a date. IDs accept either the raw IDs (ep_/msg_) or customer-assigned \
+        UIDs.";
+
+    let mut implementation = Implementation::new("svix-app-portal-mcp", env!("CARGO_PKG_VERSION"));
+
+    let instructions = match customer {
+        Some(customer) => {
+            implementation.title = Some(format!("{customer} Webhooks"));
+            implementation.description = Some(format!("Debug {customer} webhook delivery."));
+            format!(
+                "Debug {customer} webhook delivery. Use this server whenever the user is working \
+                 with {customer} webhooks — for example they mention {customer}, or the codebase \
+                 integrates {customer} webhooks (an endpoint that receives {customer} events, \
+                 {customer} webhook signature verification, or a {customer} webhook handler). \
+                 {WORKFLOW}"
+            )
+        }
+        None => format!("Debug Svix webhook delivery problems for an application. {WORKFLOW}"),
+    };
+
+    ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+        .with_server_info(implementation)
+        .with_instructions(instructions)
 }
 
 fn decode_mcp_token(ctx: &RequestContext<RoleServer>) -> Result<McpTokenContent, McpError> {

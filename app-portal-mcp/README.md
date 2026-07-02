@@ -37,6 +37,7 @@ request without a token gets a `401`.
 | `MCP_TRANSPORT`   | no         | `stdio` (default) or `http`.                                       |
 | `SVIX_TOKEN`      | stdio only | Svix API token (region inferred from its suffix).                 |
 | `SVIX_APP_ID`     | stdio only | The application id (or UID) this session debugs.                  |
+| `SVIX_CUSTOMER_NAME` | no      | stdio only. Customer/brand name (e.g. `Acme`) used to tailor the server's instructions and triggers. In http mode this comes from the token. |
 | `MCP_BIND_ADDR`   | no         | HTTP bind address. Defaults to `127.0.0.1:8080`, at `/mcp/{slug}`.   |
 | `SVIX_SERVER_URL` | no         | Override the API base URL (e.g. `http://localhost:8071`).         |
 | `RUST_LOG`        | no         | Log filter (stderr). Defaults to `info`.                          |

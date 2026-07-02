@@ -168,7 +168,8 @@ id as environment variables:
       "command": "/path/to/app-portal-mcp/target/release/app-portal-mcp",
       "env": {
         "SVIX_TOKEN": "testsk_...",
-        "SVIX_APP_ID": "app_..."
+        "SVIX_APP_ID": "app_...",
+        "SVIX_CUSTOMER_NAME": "Acme"
       }
     }
   }
