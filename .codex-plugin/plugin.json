@@ -1,0 +1,8 @@
+{
+  "name": "svix-agent-skills",
+  "description": "Agent plugin with Svix Skills for webhook dispatch, ingest, CLI, and receiver workflows.",
+  "version": "0.1.0",
+  "skills": "./skills",
+  "tags": ["svix", "webhooks", "agent-skills", "dispatch", "ingest"],
+  "defaultPrompt": "Use the Svix Skills in this plugin to plan, build, review, or debug webhook integrations without exposing API keys, signing secrets, customer payloads, or model outputs."
+}
