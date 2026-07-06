@@ -32,8 +32,8 @@ struct McpTokenContent {
     #[serde(rename = "tok")]
     token: String,
     /// Human-readable customer/brand name the token was issued for (e.g.
-    /// "Acme"). Used to build customer-specific server instructions. Older
-    /// tokens omit it, so it defaults to empty.
+    /// "Acme"). Used to build customer-specific server instructions. The issuer
+    /// omits it when it would be empty, so it defaults to empty.
     #[serde(rename = "cust", default)]
     customer_name: String,
 }

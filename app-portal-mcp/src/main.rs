@@ -78,18 +78,18 @@ async fn run_http() -> anyhow::Result<()> {
         Default::default(),
     );
 
-    // The slug segment is a cosmetic alias so a user can connect MCP clients for
-    // several Svix customers, environments, and regions without the URLs
-    // colliding; it is ignored by the server, which authenticates entirely from
-    // the bearer token.
+    // The app id segment lets a user connect MCP clients for several Svix
+    // applications without the URLs colliding; it is ignored by the server, which
+    // authenticates entirely from the bearer token (the token also encodes the
+    // app id).
     let app = axum::Router::new()
-        .nest_service("/mcp/{slug}", service)
+        .nest_service("/app/{app_id}", service)
         .layer(from_fn(require_authorization));
 
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .with_context(|| format!("failed to bind {addr}"))?;
-    tracing::info!("starting svix-app-portal-mcp over HTTP on http://{addr}/mcp/{{slug}}");
+    tracing::info!("starting svix-app-portal-mcp over HTTP on http://{addr}/app/{{app_id}}");
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async {

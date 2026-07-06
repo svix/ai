@@ -15,7 +15,7 @@ config looks like this:
 {
   "mcpServers": {
     "<slug>-webhooks": {
-      "url": "https://mcp.svix.com/mcp/<slug>",
+      "url": "https://mcp.svix.com/app/<app_id>",
       "headers": {
         "Authorization": "Bearer <YOUR_TOKEN>"
       }
@@ -24,17 +24,16 @@ config looks like this:
 }
 ```
 
-There's no separate login or OAuth flow to complete. The `<slug>` segment combines
-your app portal display name, environment, and region
-(e.g. `acme_production_us`): it keeps the server URL distinct so you can connect
-clients for several Svix customers, environments, and regions without the URLs
-colliding, and the portal names the server `<slug>-webhooks` for the same reason —
-so MCP servers stay distinct in your client.
+There's no separate login or OAuth flow to complete. The `<app_id>` segment is
+your application id: it keeps the server URL distinct so you can connect clients
+for several Svix applications without the URLs colliding. The portal names the
+server `<slug>-webhooks` — a readable label derived from your app portal display
+name (e.g. `acme-webhooks`) — so it's easy to recognize in your client.
 
 > Treat the token like a password. Don't commit it or share it.
 
 The rest of this guide refers to the URL as `<YOUR_MCP_URL>`
-(`https://mcp.svix.com/mcp/<slug>`) and the token as `<YOUR_TOKEN>`, and uses
+(`https://mcp.svix.com/app/<app_id>`) and the token as `<YOUR_TOKEN>`, and uses
 the server name `<slug>-webhooks` the portal provides (shortened to
 `svix-debug` in the examples below). The token is always sent as an
 `Authorization: Bearer <YOUR_TOKEN>` header.

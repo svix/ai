@@ -26,11 +26,10 @@ cargo build --release
 Selected by `MCP_TRANSPORT`. In `stdio` mode the token and app id come from the
 environment; in `http` mode the MCP token is read per-request from the
 `Authorization: Bearer <token>` header (it also encodes the app id). The server
-is mounted at `/mcp/{slug}`: the path segment is a cosmetic slug (app portal
-display name, environment, and region) that the server ignores (it authenticates
-entirely from the token) but that keeps URLs distinct so you can connect clients
-for several Svix customers, environments, and regions without them colliding. A
-request without a token gets a `401`.
+is mounted at `/app/{app_id}`: the path segment is the application id, which the
+server ignores (it authenticates entirely from the token, which also encodes the
+app id) but that keeps URLs distinct so you can connect clients for several Svix
+applications without them colliding. A request without a token gets a `401`.
 
 | Variable          | Required   | Description                                                         |
 | ----------------- | ---------- | ------------------------------------------------------------------ |
@@ -38,7 +37,7 @@ request without a token gets a `401`.
 | `SVIX_TOKEN`      | stdio only | Svix API token (region inferred from its suffix).                 |
 | `SVIX_APP_ID`     | stdio only | The application id (or UID) this session debugs.                  |
 | `SVIX_CUSTOMER_NAME` | no      | stdio only. Customer/brand name (e.g. `Acme`) used to tailor the server's instructions and triggers. In http mode this comes from the token. |
-| `MCP_BIND_ADDR`   | no         | HTTP bind address. Defaults to `127.0.0.1:8080`, at `/mcp/{slug}`.   |
+| `MCP_BIND_ADDR`   | no         | HTTP bind address. Defaults to `127.0.0.1:8080`, at `/app/{app_id}`. |
 | `SVIX_SERVER_URL` | no         | Override the API base URL (e.g. `http://localhost:8071`).         |
 | `RUST_LOG`        | no         | Log filter (stderr). Defaults to `info`.                          |
 
