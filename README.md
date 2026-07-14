@@ -1,22 +1,39 @@
-# Svix Agent Skills
+# Svix for AI Agents
 
-[Agent Skills](https://agentskills.io/) that teach Claude, Cursor, and other AI coding agents how to integrate [Svix](https://www.svix.com/) the way Svix's own engineers would.
+Everything Svix builds to make AI agents good at webhooks: teaching them how to [send and receive webhooks](https://www.svix.com/) the way Svix's own engineers would, giving them tools to debug a broken delivery, and letting them receive webhooks without hosting a public HTTP server.
+
+Three kinds of things live here:
+
+| | What it is | For |
+| --- | --- | --- |
+| [**Skills**](#skills) | [Agent Skills](https://agentskills.io/): instructions that load into the agent's context on demand | Coding agents (Claude, Cursor, …) writing or reviewing a Svix integration |
+| [**MCP servers**](#mcp-servers) | Tools an agent can call against a live Svix account | Debugging real webhook deliveries from your editor |
+| [**Agent plugins**](#agent-plugins) | Platform plugins that deliver webhooks *to* an agent runtime | Running agents that wake up on webhook events |
 
 ## Skills
 
-- **`svix-best-practices`**: If you're maintaining an existing Svix integration, use this skill to ensure your agent uses Svix the way it's intended to be used. Covers [Dispatch](https://www.svix.com/) (sending webhooks: tenancy, `message.create`, idempotency, [App Portal](https://docs.svix.com/app-portal)), [Ingest](https://www.svix.com/ingest/) (receiving webhooks: Source Types, fanout, transformations, handlers), and the [Svix CLI](https://docs.svix.com/tutorials/cli) (`svix listen`, scripting).
-- **`svix-integration-plan`**: Investigates the repo, asks the handful of questions Claude can't answer on its own (Application UID, event types, [App Portal](https://docs.svix.com/app-portal) vs custom UI, migration off an existing webhook system), then produces a written integration plan. Use for non-trivial integrations such as multi-tenant routing, event catalog, [Ingest](https://www.svix.com/ingest/) Sources before you code anything.
-- **`svix-quickstart`**: Get a working Svix integration sending its first webhook as fast as possible. API key, SDK install, create an Application, send a message, subscribe customers. Use when adding [Svix](https://www.svix.com/) to a project for the first time and you just need the setup steps, not an architecture pass.
-- **`receiving-webhooks`**: Provider-agnostic guidelines for building a robust webhook receiver.
-Use when writing, reviewing, or debugging a handler that consumes incoming webhooks from [Svix](https://www.svix.com/) or any other provider.
+Instructions an agent loads when it's about to touch Svix: planning an integration, wiring up the first webhook, reviewing an existing one, or writing a receiver. Four of them live in [`skills/`](skills/), and that README has the full rundown.
 
-`SKILL.md` loads when a skill activates; per-topic references load on demand.
-
-## Install
+Install them into any project:
 
 ```bash
 npx skills add svix/ai
 ```
+
+## MCP servers
+
+- **[`app-portal-mcp`](app-portal-mcp/)**: an [MCP](https://modelcontextprotocol.io) server for debugging webhook delivery problems. List endpoints, drill into failed attempts, read the response the customer's server actually returned, and resend or recover messages. It is scoped to a single application via an app-scoped token, so you can hand it to an agent (or a customer) without exposing the rest of your account.
+
+Grab a connection URL from the App Portal's **Get MCP Token** button and point your agent at it. See [`app-portal-mcp/INSTALL.md`](app-portal-mcp/INSTALL.md) for per-agent setup.
+
+## Agent plugins
+
+Agent runtimes usually receive webhooks by exposing an inbound HTTP route, which means a public URL, an open port, or a tunnel. These plugins invert that: they **poll** a Svix sink with the SDK's [`AutoConfigConsumer`](https://docs.svix.com/receiving/webhooks-autoconfig) and hand each message to the runtime exactly as an inbound `POST` would. Nothing listens, so they work from a laptop behind NAT or a locked-down network, and the buffer in front means events survive a restart.
+
+- **[`svix-openclaw`](plugins/svix-openclaw/)**: [OpenClaw](https://docs.openclaw.ai/) plugin. Polled payloads become TaskFlow actions, or get POSTed to the gateway's `/hooks/wake` and `/hooks/agent` automation hooks.
+- **[`svix-hermes`](plugins/svix-hermes/)**: [Hermes Agent](https://github.com/NousResearch/hermes-agent) gateway plugin. Each event flows through a route, prompt, and delivery pipeline, with responses going to a log, a GitHub comment, or any connected platform.
+
+Each plugin's README covers install and configuration.
 
 ## License
 
