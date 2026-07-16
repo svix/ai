@@ -3,10 +3,10 @@ name: svix-integration-plan
 description: >-
   Produces a written integration plan for a complete Svix integration with multi-tenant routing, event type catalog, App Portal embedding, migrating
   off an existing webhook system. Investigates the repo, asks only the
-  questions Claude cannot answer on its own, then writes the plan. Use when
+  questions the agent cannot answer on its own, then writes the plan. Use when
   the user asks "how should I integrate Svix into <this codebase>?" or wants
-  a design pass before code. For "I just want to send my first webhook,"
-  use the svix-quickstart skill instead.
+  a design pass before code. This skill plans and does not write code; to
+  build or modify a Svix integration, use svix-best-practices instead.
 allowed-tools: WebFetch(domain:docs.svix.com), WebFetch(domain:svix.com), WebFetch(domain:github.com), WebFetch(domain:raw.githubusercontent.com), AskUserQuestion, Read(./**), Read(~/.claude/skills/svix-integration-plan/**), Read(/.claude/skills/svix-integration-plan/**), Grep(./**), Grep(~/.claude/skills/svix-integration-plan/**), Grep(/.claude/skills/svix-integration-plan/**), Glob
 ---
 
