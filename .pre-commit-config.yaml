@@ -22,26 +22,26 @@ repos:
     rev: v1.46.3
     hooks:
       - id: typos
-  # Mirrors .github/workflows/app-portal-mcp-ci.yml so the Rust CI fails locally
+  # Mirrors .github/workflows/mcp-ci.yml so the Rust CI fails locally
   # before commit. Scoped to the crate; heavy checks only fire when it changes.
   - repo: local
     hooks:
-      - id: app-portal-mcp-fmt
-        name: app-portal-mcp rustfmt
+      - id: mcp-fmt
+        name: mcp rustfmt
         # Nightly required for the unstable options in .rustfmt.toml (matches CI).
-        entry: bash -c 'cd app-portal-mcp && cargo +nightly fmt --all -- --check'
+        entry: bash -c 'cd mcp && cargo +nightly fmt --all -- --check'
         language: system
-        files: ^app-portal-mcp/
+        files: ^mcp/
         pass_filenames: false
-      - id: app-portal-mcp-clippy
-        name: app-portal-mcp clippy
-        entry: bash -c 'cd app-portal-mcp && cargo clippy --locked --all-targets -- -D warnings'
+      - id: mcp-clippy
+        name: mcp clippy
+        entry: bash -c 'cd mcp && cargo clippy --locked --all-targets -- -D warnings'
         language: system
-        files: ^app-portal-mcp/
+        files: ^mcp/
         pass_filenames: false
-      - id: app-portal-mcp-cargo-sort
-        name: app-portal-mcp cargo sort
-        entry: bash -c 'cd app-portal-mcp && cargo sort --check'
+      - id: mcp-cargo-sort
+        name: mcp cargo sort
+        entry: bash -c 'cd mcp && cargo sort --check'
         language: system
-        files: ^app-portal-mcp/
+        files: ^mcp/
         pass_filenames: false
