@@ -1,15 +1,21 @@
 # Installation
 
-The Svix App Portal MCP server lets your coding agent debug webhook delivery for
-**one application**: inspecting endpoints, failed attempts, customer responses,
-and replaying messages.
+Svix has two MCP servers. Pick the one that matches what you're doing:
 
-## Step 1: Get your token from the App Portal
+| Server         | Use it to                                                                                                                                 | URL                              | Token from                         |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | ---------------------------------- |
+| **App portal** | Debug the webhooks you **send** for one application: endpoints, failed attempts, the responses customers returned, resending and recovering. | `https://mcp.svix.com/app/<app_id>` | **App Portal** → **Get MCP Token** |
+| **Ingest**     | Set up and debug the webhooks you **receive** from providers (Stripe, GitHub, …): sources, ingest URLs, handler endpoints, signing secrets. | `https://mcp.svix.com/ingest`    | **Dashboard** → **Ingest** → **Connect to MCP** |
 
-Open the **App Portal** and click **Get MCP Token**, then pick your coding agent
-for ready-to-paste setup steps. Each one uses a server URL and an app-scoped token
-(the token also encodes the app id, so nothing else is needed). The underlying
-config looks like this:
+Both are wired up the same way, and the ingest server includes the app portal's
+debugging tools (taking the ingest source they apply to), so you don't need both
+to debug an ingest handler.
+
+## Step 1: Get your token
+
+Click the button above for your server and pick your coding agent for
+ready-to-paste setup steps. There's no separate login or OAuth flow to complete —
+the token is all you need. The underlying config looks like this:
 
 ```json
 {
@@ -24,17 +30,20 @@ config looks like this:
 }
 ```
 
-There's no separate login or OAuth flow to complete. The `<app_id>` segment is
-your application id: it keeps the server URL distinct so you can connect clients
-for several Svix applications without the URLs colliding. The portal names the
-server `<slug>-webhooks` — a readable label derived from your app portal display
-name (e.g. `acme-webhooks`) — so it's easy to recognize in your client.
+The app portal token is app-scoped and also encodes the app id, so nothing else
+is needed; the `<app_id>` segment in the URL just keeps server URLs distinct so
+you can connect clients for several Svix applications without them colliding. The
+ingest token is scoped to your organization, and its URL takes no segment — its
+tools name the ingest source they act on.
+
+Both places name the server `<slug>-webhooks` — a readable label derived from
+your display name (e.g. `acme-webhooks`) — so it's easy to recognize in your
+client.
 
 > Treat the token like a password. Don't commit it or share it.
 
-The rest of this guide refers to the URL as `<YOUR_MCP_URL>`
-(`https://mcp.svix.com/app/<app_id>`) and the token as `<YOUR_TOKEN>`, and uses
-the server name `<slug>-webhooks` the portal provides (shortened to
+The rest of this guide refers to the URL as `<YOUR_MCP_URL>` and the token as
+`<YOUR_TOKEN>`, and uses the server name `<slug>-webhooks` (shortened to
 `svix-debug` in the examples below). The token is always sent as an
 `Authorization: Bearer <YOUR_TOKEN>` header.
 
@@ -157,14 +166,16 @@ Any client that supports a remote HTTP MCP server works. Point it at
 
 ## Alternative: run it locally (stdio)
 
-Build the binary (see the [README](./README.md#build)) and pass the token and app
-id as environment variables:
+Build the binary (see the [README](./README.md#build)) and pass a raw Svix API
+token in the environment. `MCP_SERVER` picks which server to run.
+
+App portal — an app-scoped token plus the application to debug:
 
 ```json
 {
   "mcpServers": {
     "svix-debug": {
-      "command": "/path/to/app-portal-mcp/target/release/app-portal-mcp",
+      "command": "/path/to/mcp/target/release/svix-mcp",
       "env": {
         "SVIX_TOKEN": "testsk_...",
         "SVIX_APP_ID": "app_...",
@@ -175,5 +186,23 @@ id as environment variables:
 }
 ```
 
-> `resend_message` and `recover_endpoint` perform real webhook deliveries. Only
-> invoke them when you want to resend or recover.
+Ingest — an org-scoped token, no application (the tools name the source):
+
+```json
+{
+  "mcpServers": {
+    "svix-ingest": {
+      "command": "/path/to/mcp/target/release/svix-mcp",
+      "env": {
+        "MCP_SERVER": "ingest",
+        "SVIX_TOKEN": "testsk_...",
+        "SVIX_CUSTOMER_NAME": "Acme"
+      }
+    }
+  }
+}
+```
+
+> Tools that create, update, delete, or rotate change live configuration, and
+> `resend_message` / `recover_endpoint` perform real webhook deliveries. Only
+> invoke them when you mean to.

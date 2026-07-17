@@ -1,9 +1,9 @@
-# Svix App Portal MCP dev tasks.
+# Svix MCP dev tasks.
 # Run `just` to list recipes.
 
 # Local Svix dev server the MCP makes API calls against.
 svix_server_url := "http://localhost:8071"
-# Address the MCP HTTP server binds to (served at /mcp).
+# Address the MCP HTTP server binds to.
 bind_addr := "127.0.0.1:8080"
 # Log filter (logs go to stderr).
 log := "info"
@@ -16,14 +16,19 @@ default:
 build:
     cargo build --release
 
-# Run the MCP server in HTTP mode against the local dev server.
-# Connect a client to http://{{bind_addr}}/mcp?token=<token>.
+# Run both MCP servers in HTTP mode against the local dev server: the app portal
+# at http://{{bind_addr}}/app/{app_id} and ingest at http://{{bind_addr}}/ingest.
+# Both take the MCP token as `Authorization: Bearer <token>`.
 run:
     MCP_TRANSPORT=http \
     MCP_BIND_ADDR={{ bind_addr }} \
     SVIX_SERVER_URL={{ svix_server_url }} \
     RUST_LOG={{ log }} \
     cargo run --release
+
+# Run the test suite.
+test *args='':
+    cargo test {{ args }}
 
 # Run `cargo check`.
 check *args='':
