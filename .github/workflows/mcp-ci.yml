@@ -10,6 +10,8 @@ on:
     paths:
       - 'mcp/**'
       - '.github/workflows/mcp-ci.yml'
+  # Build and push the MCP image to GHCR on demand (the `docker` job below).
+  workflow_dispatch:
 # When pushing to a PR, cancel any jobs still running for the previous head commit.
 concurrency:
   group: mcp-ci-${{ github.head_ref || github.run_id }}
@@ -75,3 +77,23 @@ jobs:
           tool: cargo-sort
       - name: cargo sort
         run: cargo sort --check
+  docker:
+    name: Docker image
+    needs: [check-fmt, clippy, test, cargo-sort]
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    uses: docker/github-builder/.github/workflows/build.yml@v1.14.0
+    with:
+      output: image
+      push: true
+      context: mcp
+      file: mcp/Dockerfile
+      platforms: linux/amd64,linux/arm64
+      meta-images: ghcr.io/svix/svix-mcp
+      meta-tags: |
+        type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+        type=sha,format=long

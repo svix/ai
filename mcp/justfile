@@ -16,6 +16,13 @@ default:
 build:
     cargo build --release
 
+# Image tag for the local Docker build.
+docker_image := "svix-mcp:dev"
+
+# Build the Docker image (HTTP server).
+docker-build:
+    docker build -t {{ docker_image }} .
+
 # Run both MCP servers in HTTP mode against the local dev server: the app portal
 # at http://{{bind_addr}}/app/{app_id} and ingest at http://{{bind_addr}}/ingest.
 # Both take the MCP token as `Authorization: Bearer <token>`.
