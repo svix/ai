@@ -12,7 +12,7 @@ Three kinds of things live here:
 
 ## Skills
 
-Instructions an agent loads when it's about to touch Svix: planning an integration, wiring up the first webhook, reviewing an existing one, or writing a receiver. Three of them live in [`skills/`](skills/), and that README has the full rundown.
+Instructions an agent loads when it's about to touch Svix: planning an integration, wiring up the first webhook, reviewing an existing one, or writing a receiver. Two of them live in [`skills/`](skills/), and that README has the full rundown.
 
 Install them into any project:
 
