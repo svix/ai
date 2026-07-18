@@ -3,7 +3,7 @@
 
 # ---- Builder
 # Pin to the same Rust toolchain CI uses (see .github/workflows/mcp-ci.yml).
-FROM rust:1.96-slim-bookworm AS builder
+FROM rust:1.97.1-slim-trixie AS builder
 
 WORKDIR /build
 
@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cp target/release/svix-mcp /svix-mcp
 
 # ---- Runtime
-FROM debian:bookworm-slim AS runtime
+FROM debian:trixie-slim AS runtime
 
 # Stuff for rustls
 # curl added to run the health check

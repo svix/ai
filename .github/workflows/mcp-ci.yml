@@ -19,7 +19,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  ci_toolchain_rust: "1.96"
+  ci_toolchain_rust: "1.97.1"
 defaults:
   run:
     working-directory: mcp
