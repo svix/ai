@@ -20,12 +20,12 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # ---- Runtime
 FROM debian:trixie-slim AS runtime
 
-# ca-certificates for rustls; curl for the health check.
+# ca-certificates for rustls; curl for the health check; tini for a proper PID 1 init.
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     --mount=target=/var/cache/apt,type=cache,sharing=locked <<EOF
 set -eux
 apt-get update
-apt-get install -y --no-install-recommends ca-certificates curl
+apt-get install -y --no-install-recommends ca-certificates curl tini
 EOF
 
 # Run as an unprivileged user.
@@ -44,4 +44,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -sS -o /dev/null http://127.0.0.1:8080/ingest || exit 1
 
-ENTRYPOINT ["/usr/local/bin/svix-mcp"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/usr/local/bin/svix-mcp"]
