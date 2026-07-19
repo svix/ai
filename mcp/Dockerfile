@@ -20,11 +20,13 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # ---- Runtime
 FROM debian:trixie-slim AS runtime
 
-# Stuff for rustls
-# curl added to run the health check
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl && \
-    rm -rf /var/lib/apt/lists/*
+# ca-certificates for rustls; curl for the health check.
+RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
+    --mount=target=/var/cache/apt,type=cache,sharing=locked <<EOF
+set -eux
+apt-get update
+apt-get install -y --no-install-recommends ca-certificates curl
+EOF
 
 # Run as an unprivileged user.
 RUN useradd --system --uid 10001 --user-group --home-dir /nonexistent \
