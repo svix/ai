@@ -14,6 +14,7 @@ COPY src ./src
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
     cargo build --release --locked && \
+    strip target/release/svix-mcp && \
     cp target/release/svix-mcp /svix-mcp
 
 # ---- Runtime
