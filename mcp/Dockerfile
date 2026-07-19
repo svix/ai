@@ -33,7 +33,7 @@ RUN useradd --system --uid 10001 --user-group --home-dir /nonexistent \
     --shell /usr/sbin/nologin svix
 USER svix
 
-COPY --from=builder /svix-mcp /usr/local/bin/svix-mcp
+COPY --chown=root:root --chmod=755 --from=builder /svix-mcp /usr/local/bin/svix-mcp
 
 
 ENV MCP_TRANSPORT=http \
