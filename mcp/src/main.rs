@@ -14,9 +14,12 @@ mod ingest;
 
 use anyhow::Context;
 use axum::{
+    Json,
     middleware::{Next, from_fn},
     response::{IntoResponse, Response},
+    routing::get,
 };
+use clap::Parser;
 use http::{StatusCode, header};
 use rmcp::{
     ServiceExt,
@@ -25,12 +28,28 @@ use rmcp::{
         streamable_http_server::{StreamableHttpService, session::local::LocalSessionManager},
     },
 };
+use serde::Serialize;
 use svix::api::Svix;
 
 use crate::{app_portal::AppPortalServer, common::svix_options, ingest::IngestServer};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumString, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
+enum McpTransport {
+    Http,
+    Stdio,
+}
+
+#[derive(Parser)]
+struct Args {
+    #[clap(long, env = "MCP_TRANSPORT", default_value_t = McpTransport::Stdio)]
+    transport: McpTransport,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
+
     // Logs must go to stderr; stdout is the stdio MCP stream.
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -40,10 +59,9 @@ async fn main() -> anyhow::Result<()> {
         .with_ansi(false)
         .init();
 
-    match std::env::var("MCP_TRANSPORT").as_deref() {
-        Ok("http") => run_http().await,
-        Ok("stdio") | Err(_) => run_stdio().await,
-        Ok(other) => anyhow::bail!("unknown MCP_TRANSPORT {other:?}; expected `stdio` or `http`"),
+    match args.transport {
+        McpTransport::Http => run_http().await,
+        McpTransport::Stdio => run_stdio().await,
     }
 }
 
@@ -83,6 +101,39 @@ async fn run_stdio() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Serialize)]
+struct HealthResponse {
+    ok: bool,
+}
+
+async fn healthcheck() -> Json<HealthResponse> {
+    Json(HealthResponse { ok: true })
+}
+
+async fn wait_for_shutdown() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let sigterm = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("Failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let sigterm = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = sigterm => {},
+    }
+}
+
 /// http serves both servers; the path picks one. Each authenticates entirely
 /// from the bearer token, so the app portal's `{app_id}` segment is only there
 /// to keep one user's MCP clients for several applications from colliding.
@@ -107,23 +158,26 @@ async fn run_http() -> anyhow::Result<()> {
         Default::default(),
     );
 
-    let app = axum::Router::new()
+    let authenticated = axum::Router::new()
         .nest_service("/app/{app_id}", app_portal)
         .nest_service("/ingest", ingest)
         .layer(from_fn(require_authorization));
 
+    let unauthenticated = axum::Router::new().route("/health", get(healthcheck));
+
+    let app = authenticated.merge(unauthenticated);
+
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .with_context(|| format!("failed to bind {addr}"))?;
+    let bound = listener.local_addr()?;
     tracing::info!(
-        "starting svix mcp over HTTP: app portal on http://{addr}/app/{{app_id}}, ingest on \
-         http://{addr}/ingest"
+        "starting svix mcp over HTTP: app portal on http://{bound}/app/{{app_id}}, ingest on \
+         http://{bound}/ingest"
     );
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
+        .with_graceful_shutdown(wait_for_shutdown())
         .await
         .context("HTTP server error")?;
     Ok(())
