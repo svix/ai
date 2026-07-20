@@ -96,7 +96,6 @@ jobs:
       output: image
       push: true
       context: mcp
-      file: mcp/Dockerfile
       platforms: linux/amd64,linux/arm64
       meta-images: ${{ inputs.image }}
       meta-flavor: |
