@@ -40,9 +40,8 @@ ENV MCP_TRANSPORT=http \
     MCP_BIND_ADDR=0.0.0.0:8080
 EXPOSE 8080
 
-# Although this is going to return 401, it's fine to see if the server is up
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -sS -o /dev/null http://127.0.0.1:8080/ingest || exit 1
+    CMD curl -sS -o /dev/null http://127.0.0.1:8080/health || exit 1
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/usr/local/bin/svix-mcp"]
