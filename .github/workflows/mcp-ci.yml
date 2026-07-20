@@ -12,6 +12,11 @@ on:
       - '.github/workflows/mcp-ci.yml'
   # Build and push the MCP image to GHCR on demand (the `docker` job below).
   workflow_dispatch:
+    inputs:
+      image:
+        description: 'GHCR image to push to. Override to publish to a personal namespace.'
+        type: string
+        default: 'ghcr.io/svix/svix-mcp'
 # When pushing to a PR, cancel any jobs still running for the previous head commit.
 concurrency:
   group: mcp-ci-${{ github.head_ref || github.run_id }}
@@ -93,8 +98,15 @@ jobs:
       context: mcp
       file: mcp/Dockerfile
       platforms: linux/amd64,linux/arm64
-      meta-images: ghcr.io/svix/svix-mcp
+      meta-images: ${{ inputs.image }}
       meta-flavor: |
         latest=${{ github.ref == 'refs/heads/main' }}
       meta-tags: |
         type=sha,format=long
+    secrets:
+      # only write packages under `svix`; pushing elsewhere needs a PAT in GHCR_TOKEN
+      # (scope: write:packages) plus the matching username in the GHCR_USER variable.
+      registry-auths: |
+        - registry: ghcr.io
+          username: ${{ vars.GHCR_USER || github.actor }}
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
