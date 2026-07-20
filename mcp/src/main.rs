@@ -19,6 +19,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use clap::Parser;
 use http::{StatusCode, header};
 use rmcp::{
     ServiceExt,
@@ -31,8 +32,6 @@ use serde::Serialize;
 use svix::api::Svix;
 
 use crate::{app_portal::AppPortalServer, common::svix_options, ingest::IngestServer};
-
-use clap::Parser;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumString, strum::Display)]
 #[strum(serialize_all = "kebab-case")]
