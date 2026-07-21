@@ -1,5 +1,5 @@
 ---
-name: svix-integration
+name: svix-sending-webhooks
 description: >-
   Everything for working with Svix webhooks: first-time setup (API key,
   SDK install, first message), Dispatch (sending webhooks to your
