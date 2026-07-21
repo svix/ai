@@ -12,6 +12,8 @@ mod app_portal;
 mod common;
 mod ingest;
 
+use std::time::Duration;
+
 use anyhow::Context;
 use axum::{
     Json,
@@ -19,7 +21,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use http::{StatusCode, header};
 use rmcp::{
     ServiceExt,
@@ -30,6 +32,7 @@ use rmcp::{
 };
 use serde::Serialize;
 use svix::api::Svix;
+use tracing::Span;
 
 use crate::{app_portal::AppPortalServer, common::svix_options, ingest::IngestServer};
 
@@ -40,10 +43,30 @@ enum McpTransport {
     Stdio,
 }
 
+#[derive(Subcommand)]
+enum Command {
+    Healthcheck { server_url: reqwest::Url },
+    Run,
+}
+
 #[derive(Parser)]
 struct Args {
     #[clap(long, env = "MCP_TRANSPORT", default_value_t = McpTransport::Stdio)]
     transport: McpTransport,
+
+    #[clap(subcommand)]
+    command: Option<Command>,
+}
+
+async fn run_healthcheck(server_url: reqwest::Url) -> anyhow::Result<()> {
+    tracing::debug!(?server_url, "running healthcheck");
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()?;
+    let response = client.get(server_url).send().await?.error_for_status()?;
+    let body = response.text().await?;
+    println!("{body}");
+    Ok(())
 }
 
 #[tokio::main]
@@ -59,9 +82,12 @@ async fn main() -> anyhow::Result<()> {
         .with_ansi(false)
         .init();
 
-    match args.transport {
-        McpTransport::Http => run_http().await,
-        McpTransport::Stdio => run_stdio().await,
+    match args.command {
+        Some(Command::Healthcheck { server_url }) => run_healthcheck(server_url).await,
+        None | Some(Command::Run) => match args.transport {
+            McpTransport::Http => run_http().await,
+            McpTransport::Stdio => run_stdio().await,
+        },
     }
 }
 
@@ -134,6 +160,18 @@ async fn wait_for_shutdown() {
     }
 }
 
+fn handle_panic(err: Box<dyn std::any::Any + Send + 'static>) -> Response {
+    if let Some(err) = err.downcast_ref::<String>() {
+        tracing::error!(?err, "Unhandled panic");
+    } else if let Some(err) = err.downcast_ref::<&'static str>() {
+        tracing::error!(?err, "Unhandled panic");
+    } else {
+        tracing::error!("Unhandled non-string panic");
+    }
+
+    StatusCode::INTERNAL_SERVER_ERROR.into_response()
+}
+
 /// http serves both servers; the path picks one. Each authenticates entirely
 /// from the bearer token, so the app portal's `{app_id}` segment is only there
 /// to keep one user's MCP clients for several applications from colliding.
@@ -165,7 +203,56 @@ async fn run_http() -> anyhow::Result<()> {
 
     let unauthenticated = axum::Router::new().route("/health", get(healthcheck));
 
-    let app = authenticated.merge(unauthenticated);
+    let app = authenticated
+        .merge(unauthenticated)
+        .layer(
+            tower_http::trace::TraceLayer::new_for_http()
+                .make_span_with(|req: &http::Request<_>| {
+                    let matched_path = req
+                        .extensions()
+                        .get::<axum::extract::MatchedPath>()
+                        .map(|p| p.as_str());
+
+                    tracing::info_span!(
+                        "http_request",
+                        http.method = ?req.method(),
+                        http.route = matched_path,
+                        http.status_code = tracing::field::Empty,
+                        otel.kind = "server",
+                        otel.status_code = tracing::field::Empty,
+                    )
+                })
+                .on_response(|response: &Response, latency: Duration, span: &Span| {
+                    span.record("http.status_code", response.status().as_u16());
+                    span.record(
+                        "otel.status_code",
+                        if response.status().is_server_error() {
+                            "ERROR"
+                        } else {
+                            "OK"
+                        },
+                    );
+                    tracing::debug!(
+                        latency_ms = latency.as_millis(),
+                        "finished processing response"
+                    );
+                })
+                .on_request(|_request: &http::Request<_>, _span: &Span| {})
+                .on_body_chunk(|_chunk: &axum::body::Bytes, _latency: Duration, _span: &Span| {})
+                .on_eos(
+                    |_trailers: Option<&http::HeaderMap>,
+                     _stream_duration: Duration,
+                     _span: &Span| {},
+                )
+                .on_failure(
+                    |_error: tower_http::classify::ServerErrorsFailureClass,
+                     _latency: Duration,
+                     _span: &Span| {},
+                ),
+        )
+        .layer(tower_http::catch_panic::CatchPanicLayer::custom(
+            handle_panic,
+        ));
 
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
