@@ -22,12 +22,12 @@ npx skills add svix/ai
 
 ## MCP servers
 
-Two [MCP](https://modelcontextprotocol.io) servers, one per side of a webhook, both in **[`mcp`](mcp/)**:
+Two [MCP](https://modelcontextprotocol.io) servers, one per side of a webhook, both hosted by Svix:
 
 - **App portal** (`/app/{app_id}`): debug the webhooks you **send**. List endpoints, drill into failed attempts, read the response the customer's server actually returned, and resend or recover messages. It is scoped to a single application via an app-scoped token, so you can hand it to an agent (or a customer) without exposing the rest of your account.
 - **Ingest** (`/ingest`): set up and debug the webhooks you **receive** from providers like Stripe or GitHub. Create a source and get the URL to register with the provider, point it at the handler you're writing, fetch the signing secret that handler verifies against, then read the payloads that actually arrived and the errors your handler returned. It inherits the app portal's debugging tools, applied to an ingest source.
 
-Grab a connection URL from the App Portal's **Get MCP Token** button, or the Dashboard's Ingest page, and point your agent at it. See [`mcp/INSTALL.md`](mcp/INSTALL.md) for per-agent setup.
+Grab a connection URL from the App Portal's **Get MCP Token** button, or the Dashboard's Ingest page, and point your agent at it. Both pages link to the per-agent setup instructions.
 
 ## Agent plugins
 

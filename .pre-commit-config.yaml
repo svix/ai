@@ -22,26 +22,3 @@ repos:
     rev: v1.46.3
     hooks:
       - id: typos
-  # Mirrors .github/workflows/mcp-ci.yml so the Rust CI fails locally
-  # before commit. Scoped to the crate; heavy checks only fire when it changes.
-  - repo: local
-    hooks:
-      - id: mcp-fmt
-        name: mcp rustfmt
-        # Nightly required for the unstable options in .rustfmt.toml (matches CI).
-        entry: bash -c 'cd mcp && cargo +nightly fmt --all -- --check'
-        language: system
-        files: ^mcp/
-        pass_filenames: false
-      - id: mcp-clippy
-        name: mcp clippy
-        entry: bash -c 'cd mcp && cargo clippy --locked --all-targets -- -D warnings'
-        language: system
-        files: ^mcp/
-        pass_filenames: false
-      - id: mcp-cargo-sort
-        name: mcp cargo sort
-        entry: bash -c 'cd mcp && cargo sort --check'
-        language: system
-        files: ^mcp/
-        pass_filenames: false

@@ -24,4 +24,4 @@ Skills are the instruction layer. Alongside them:
 - LLM-readable docs at <https://docs.svix.com/>. Append `.md` to any docs URL.
 - Official server SDKs that handle signature verification, retries, idempotency, and sending.
 - The [Svix CLI](https://docs.svix.com/tutorials/cli) (`npx svix-cli`) for scripting and `svix listen` (local relay).
-- [MCP servers](../mcp/) for setting up and debugging live webhooks, and [agent plugins](../plugins/) that deliver webhooks into an agent runtime. See the [root README](../README.md).
+- [MCP servers](../README.md#mcp-servers) for setting up and debugging live webhooks, and [agent plugins](../plugins/) that deliver webhooks into an agent runtime. See the [root README](../README.md).

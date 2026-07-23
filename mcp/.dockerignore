@@ -1,5 +1,0 @@
-target
-*.md
-justfile
-.clippy.toml
-.rustfmt.toml
