@@ -29,14 +29,13 @@ function resolveHooksTarget(cfg: OpenClawConfig): {
 function makeTaskFlowDispatch(api: OpenClawPluginApi, poller: ResolvedTaskFlowPoller): DispatchFn {
   const taskFlow = api.runtime.tasks.managedFlows.bindSession({ sessionKey: poller.sessionKey });
   // Reuse the upstream target shape so the vendored action executor is
-  // unchanged. `secretInput`/`secretConfigPath` carry the polling token here
-  // (the polling transport is the client, so there is no inbound secret to
-  // verify); the executor only reads `taskFlow` and `defaultControllerId`.
+  // unchanged. `secretInput` carries the polling token here (the polling
+  // transport is the client, so there is no inbound secret to verify); the
+  // executor only reads `taskFlow` and `defaultControllerId`.
   const target: TaskFlowWebhookTarget = {
     routeId: poller.routeId,
     path: `svix:${poller.consumerId}`,
     secretInput: poller.token,
-    secretConfigPath: poller.tokenConfigPath,
     defaultControllerId: poller.controllerId,
     taskFlow,
   };

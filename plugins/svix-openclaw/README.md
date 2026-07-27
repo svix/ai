@@ -311,7 +311,7 @@ to fold in. To update:
 
 1. Copy upstream `extensions/webhooks/src/http.ts`.
 2. Drop the HTTP-transport-only functions (`writeJson`, `extractSharedSecret`,
-   `timingSafeEquals`, `createTaskFlowWebhookRequestHandler`).
+   `createTaskFlowWebhookRequestHandler`).
 3. Re-apply the two documented deltas (the three import lines, and the `export`
    keyword on the symbols the poller consumes).
 
