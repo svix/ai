@@ -4,6 +4,8 @@
  * Source: openclaw `extensions/webhooks/src/http.ts`
  * (the OpenClaw webhook bridge that binds inbound automation to TaskFlows).
  *
+ * Synced to upstream commit 43a695396d (openclaw 2026.7.2).
+ *
  * This file is the transport-agnostic SUBSET of the upstream module: every
  * request schema, view mapper, status mapper, plus `executeWebhookAction` and
  * `describeWebhookOutcome` are copied VERBATIM so they can be re-synced with a
@@ -11,7 +13,7 @@
  *
  * Intentionally OMITTED from upstream (HTTP-transport only — replaced by the
  * polling transport in `../poller.ts`):
- *   - `writeJson`, `extractSharedSecret`, `timingSafeEquals`
+ *   - `writeJson`, `extractSharedSecret`
  *   - `createTaskFlowWebhookRequestHandler` (the Node http handler + rate
  *     limiting / in-flight limiting / body reading / shared-secret auth)
  *
@@ -31,107 +33,86 @@ import type { WebhookSecretInput } from "../config.js";
 
 type BoundTaskFlowRuntime = ReturnType<PluginRuntime["tasks"]["managedFlows"]["bindSession"]>;
 
-type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-
-const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-  z.union([
-    z.null(),
-    z.boolean(),
-    z.number().finite(),
-    z.string(),
-    z.array(jsonValueSchema),
-    z.record(z.string(), jsonValueSchema),
-  ]),
-);
+const jsonValueSchema = z.json();
+type JsonValue = z.infer<typeof jsonValueSchema>;
 
 const nullableStringSchema = z.string().trim().min(1).nullable().optional();
 
-const createFlowRequestSchema = z
-  .object({
-    action: z.literal("create_flow"),
-    controllerId: z.string().trim().min(1).optional(),
-    goal: z.string().trim().min(1),
-    status: z.enum(["queued", "running", "waiting", "blocked"]).optional(),
-    notifyPolicy: z.enum(["done_only", "state_changes", "silent"]).optional(),
-    currentStep: nullableStringSchema,
-    stateJson: jsonValueSchema.nullable().optional(),
-    waitJson: jsonValueSchema.nullable().optional(),
-  })
-  .strict();
+const createFlowRequestSchema = z.strictObject({
+  action: z.literal("create_flow"),
+  controllerId: z.string().trim().min(1).optional(),
+  goal: z.string().trim().min(1),
+  status: z.enum(["queued", "running", "waiting", "blocked"]).optional(),
+  notifyPolicy: z.enum(["done_only", "state_changes", "silent"]).optional(),
+  currentStep: nullableStringSchema,
+  stateJson: jsonValueSchema.nullable().optional(),
+  waitJson: jsonValueSchema.nullable().optional(),
+});
 
-const getFlowRequestSchema = z
-  .object({ action: z.literal("get_flow"), flowId: z.string().trim().min(1) })
-  .strict();
-const listFlowsRequestSchema = z.object({ action: z.literal("list_flows") }).strict();
-const findLatestFlowRequestSchema = z.object({ action: z.literal("find_latest_flow") }).strict();
-const resolveFlowRequestSchema = z
-  .object({ action: z.literal("resolve_flow"), token: z.string().trim().min(1) })
-  .strict();
-const getTaskSummaryRequestSchema = z
-  .object({ action: z.literal("get_task_summary"), flowId: z.string().trim().min(1) })
-  .strict();
+const getFlowRequestSchema = z.strictObject({
+  action: z.literal("get_flow"),
+  flowId: z.string().trim().min(1),
+});
+const listFlowsRequestSchema = z.strictObject({ action: z.literal("list_flows") });
+const findLatestFlowRequestSchema = z.strictObject({ action: z.literal("find_latest_flow") });
+const resolveFlowRequestSchema = z.strictObject({
+  action: z.literal("resolve_flow"),
+  token: z.string().trim().min(1),
+});
+const getTaskSummaryRequestSchema = z.strictObject({
+  action: z.literal("get_task_summary"),
+  flowId: z.string().trim().min(1),
+});
 
-const setWaitingRequestSchema = z
-  .object({
-    action: z.literal("set_waiting"),
-    flowId: z.string().trim().min(1),
-    expectedRevision: z.number().int().nonnegative(),
-    currentStep: nullableStringSchema,
-    stateJson: jsonValueSchema.nullable().optional(),
-    waitJson: jsonValueSchema.nullable().optional(),
-    blockedTaskId: nullableStringSchema,
-    blockedSummary: nullableStringSchema,
-  })
-  .strict();
+const setWaitingRequestSchema = z.strictObject({
+  action: z.literal("set_waiting"),
+  flowId: z.string().trim().min(1),
+  expectedRevision: z.number().int().nonnegative(),
+  currentStep: nullableStringSchema,
+  stateJson: jsonValueSchema.nullable().optional(),
+  waitJson: jsonValueSchema.nullable().optional(),
+  blockedTaskId: nullableStringSchema,
+  blockedSummary: nullableStringSchema,
+});
 
-const resumeFlowRequestSchema = z
-  .object({
-    action: z.literal("resume_flow"),
-    flowId: z.string().trim().min(1),
-    expectedRevision: z.number().int().nonnegative(),
-    status: z.enum(["queued", "running"]).optional(),
-    currentStep: nullableStringSchema,
-    stateJson: jsonValueSchema.nullable().optional(),
-  })
-  .strict();
+const resumeFlowRequestSchema = z.strictObject({
+  action: z.literal("resume_flow"),
+  flowId: z.string().trim().min(1),
+  expectedRevision: z.number().int().nonnegative(),
+  status: z.enum(["queued", "running"]).optional(),
+  currentStep: nullableStringSchema,
+  stateJson: jsonValueSchema.nullable().optional(),
+});
 
-const finishFlowRequestSchema = z
-  .object({
-    action: z.literal("finish_flow"),
-    flowId: z.string().trim().min(1),
-    expectedRevision: z.number().int().nonnegative(),
-    stateJson: jsonValueSchema.nullable().optional(),
-  })
-  .strict();
+const finishFlowRequestSchema = z.strictObject({
+  action: z.literal("finish_flow"),
+  flowId: z.string().trim().min(1),
+  expectedRevision: z.number().int().nonnegative(),
+  stateJson: jsonValueSchema.nullable().optional(),
+});
 
-const failFlowRequestSchema = z
-  .object({
-    action: z.literal("fail_flow"),
-    flowId: z.string().trim().min(1),
-    expectedRevision: z.number().int().nonnegative(),
-    stateJson: jsonValueSchema.nullable().optional(),
-    blockedTaskId: nullableStringSchema,
-    blockedSummary: nullableStringSchema,
-  })
-  .strict();
+const failFlowRequestSchema = z.strictObject({
+  action: z.literal("fail_flow"),
+  flowId: z.string().trim().min(1),
+  expectedRevision: z.number().int().nonnegative(),
+  stateJson: jsonValueSchema.nullable().optional(),
+  blockedTaskId: nullableStringSchema,
+  blockedSummary: nullableStringSchema,
+});
 
-const requestCancelRequestSchema = z
-  .object({
-    action: z.literal("request_cancel"),
-    flowId: z.string().trim().min(1),
-    expectedRevision: z.number().int().nonnegative(),
-  })
-  .strict();
+const requestCancelRequestSchema = z.strictObject({
+  action: z.literal("request_cancel"),
+  flowId: z.string().trim().min(1),
+  expectedRevision: z.number().int().nonnegative(),
+});
 
-const cancelFlowRequestSchema = z
-  .object({
-    action: z.literal("cancel_flow"),
-    flowId: z.string().trim().min(1),
-  })
-  .strict();
+const cancelFlowRequestSchema = z.strictObject({
+  action: z.literal("cancel_flow"),
+  flowId: z.string().trim().min(1),
+});
 
 const runTaskRequestSchema = z
-  .object({
+  .strictObject({
     action: z.literal("run_task"),
     flowId: z.string().trim().min(1),
     runtime: z.enum(["subagent", "acp"]),
@@ -149,7 +130,6 @@ const runTaskRequestSchema = z
     lastEventAt: z.number().int().nonnegative().optional(),
     progressSummary: nullableStringSchema,
   })
-  .strict()
   .superRefine((value, ctx) => {
     if (
       value.status !== "running" &&
@@ -188,7 +168,6 @@ export type TaskFlowWebhookTarget = {
   routeId: string;
   path: string;
   secretInput: WebhookSecretInput;
-  secretConfigPath: string;
   defaultControllerId: string;
   taskFlow: BoundTaskFlowRuntime;
 };
