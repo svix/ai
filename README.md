@@ -8,7 +8,8 @@ Three kinds of things live here:
 | --- | --- | --- |
 | [**Skills**](#skills) | [Agent Skills](https://agentskills.io/): instructions that load into the agent's context on demand | Coding agents (Claude, Cursor, …) writing or reviewing a Svix integration |
 | [**MCP servers**](#mcp-servers) | Tools an agent can call against a live Svix account | Debugging real webhook deliveries from your editor |
-| [**Agent plugins**](#agent-plugins) | Platform plugins that deliver webhooks *to* an agent runtime | Running agents that wake up on webhook events |
+
+This repo is itself an [Agent Plugins](https://agent-plugins.org/) package: the [`plugin.json`](plugin.json) at the root packages the skills below for any conformant client.
 
 ## Skills
 
@@ -25,12 +26,12 @@ npx skills add svix/ai
 For more information, visit [our docs](https://docs.svix.com/ai/mcp)
 
 
-## Agent plugins
+## Personal Agent Plugins
 
 Agent runtimes usually receive webhooks by exposing an inbound HTTP route, which means a public URL, an open port, or a tunnel. These plugins invert that: they **poll** a Svix sink with the SDK's [`AutoConfigConsumer`](https://docs.svix.com/receiving/webhooks-autoconfig) and hand each message to the runtime exactly as an inbound `POST` would. Nothing listens, so they work from a laptop behind NAT or a locked-down network, and the buffer in front means events survive a restart.
 
-- **[`svix-openclaw`](plugins/svix-openclaw/)**: [OpenClaw](https://docs.openclaw.ai/) plugin. Polled payloads become TaskFlow actions, or get POSTed to the gateway's `/hooks/wake` and `/hooks/agent` automation hooks.
-- **[`svix-hermes`](plugins/svix-hermes/)**: [Hermes Agent](https://github.com/NousResearch/hermes-agent) gateway plugin. Each event flows through a route, prompt, and delivery pipeline, with responses going to a log, a GitHub comment, or any connected platform.
+- **[`svix-openclaw`](svix-openclaw/)**: [OpenClaw](https://docs.openclaw.ai/) plugin. Polled payloads become TaskFlow actions, or get POSTed to the gateway's `/hooks/wake` and `/hooks/agent` automation hooks.
+- **[`svix-hermes`](svix-hermes/)**: [Hermes Agent](https://github.com/NousResearch/hermes-agent) gateway plugin. Each event flows through a route, prompt, and delivery pipeline, with responses going to a log, a GitHub comment, or any connected platform.
 
 Each plugin's README covers install and configuration.
 
