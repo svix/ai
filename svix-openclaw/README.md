@@ -126,7 +126,7 @@ the load path and a `plugins.entries.svix-openclaw` entry):
 
 ```bash
 git clone https://github.com/svix/ai.git
-openclaw plugins install --link ./ai/plugins/svix-openclaw
+openclaw plugins install --link ./ai/svix-openclaw
 ```
 
 ### 3. Configure routes (and enable hooks for wake/agent)

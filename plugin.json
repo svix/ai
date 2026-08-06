@@ -1,0 +1,14 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "svix",
+  "version": "1.0.0",
+  "description": "Teaches AI agents to send and receive webhooks the way Svix's own engineers would.",
+  "author": {
+    "name": "Svix",
+    "url": "https://www.svix.com/"
+  },
+  "homepage": "https://docs.svix.com/ai",
+  "repository": "https://github.com/svix/ai",
+  "license": "MIT",
+  "keywords": ["svix", "webhooks", "standard-webhooks"]
+}

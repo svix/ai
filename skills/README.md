@@ -17,6 +17,8 @@ Each skill is a `SKILL.md`, the instructions that enter the agent's context when
 npx skills add svix/ai
 ```
 
+Both skills are also packaged as an [Agent Plugins](https://agent-plugins.org/) v1.0.0 plugin — this folder is the `skills/` component of the manifest at the [repo root](../plugin.json), so an Agent Plugins client can install them by pointing at a clone of the repo.
+
 ## What else Svix gives an agent
 
 Skills are the instruction layer. Alongside them:
@@ -24,4 +26,4 @@ Skills are the instruction layer. Alongside them:
 - LLM-readable docs at <https://docs.svix.com/>. Append `.md` to any docs URL.
 - Official server SDKs that handle signature verification, retries, idempotency, and sending.
 - The [Svix CLI](https://docs.svix.com/tutorials/cli) (`npx svix-cli`) for scripting and `svix listen` (local relay).
-- [MCP servers](../README.md#mcp-servers) for setting up and debugging live webhooks, and [agent plugins](../plugins/) that deliver webhooks into an agent runtime. See the [root README](../README.md).
+- [MCP servers](../README.md#mcp-servers) for setting up and debugging live webhooks, and [agent plugins](../README.md#agent-plugins) that deliver webhooks into an agent runtime. See the [root README](../README.md).
