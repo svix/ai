@@ -1,0 +1,22 @@
+{
+  "name": "svix",
+  "owner": {
+    "name": "Svix",
+    "url": "https://www.svix.com/"
+  },
+  "description": "Svix's skills for AI coding agents working on webhooks.",
+  "plugins": [
+    {
+      "name": "svix",
+      "source": "./",
+      "description": "Teaches AI agents to send and receive webhooks the way Svix's own engineers would.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Svix",
+        "url": "https://www.svix.com/"
+      },
+      "category": "Developer Tools",
+      "tags": ["svix", "webhooks", "standard-webhooks"]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "name": "svix",
+  "version": "1.0.0",
+  "description": "Teaches AI agents to send and receive webhooks the way Svix's own engineers would.",
+  "author": {
+    "name": "Svix",
+    "url": "https://www.svix.com/"
+  },
+  "homepage": "https://docs.svix.com/ai",
+  "repository": "https://github.com/svix/ai",
+  "license": "MIT",
+  "keywords": ["svix", "webhooks", "standard-webhooks"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Svix",
+    "developerName": "Svix",
+    "shortDescription": "Svix skills for sending, receiving, and debugging webhooks",
+    "longDescription": "",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://www.svix.com/",
+    "privacyPolicyURL": "https://www.svix.com/legal/privacy/",
+    "termsOfServiceURL": "https://www.svix.com/terms/",
+    "brandColor": "#2C70FF",
+    "defaultPrompt": [
+      "Start sending webhooks when an user is created",
+      "Review our webhook receiver for signature verification and replay protection"
+    ],
+    "logo": "./assets/logo.svg"
+  }
+}

@@ -17,7 +17,12 @@ Each skill is a `SKILL.md`, the instructions that enter the agent's context when
 npx skills add svix/ai
 ```
 
-Both skills are also packaged as an [Agent Plugins](https://agent-plugins.org/) v1.0.0 plugin — this folder is the `skills/` component of the manifest at the [repo root](../plugin.json), so an Agent Plugins client can install them by pointing at a clone of the repo.
+Both skills are also packaged as a plugin. This folder is the `skills/` component of three manifests at the repo root — [`.claude-plugin/`](../.claude-plugin/) for [Claude Code](https://code.claude.com/docs/en/plugins), [`.codex-plugin/plugin.json`](../.codex-plugin/plugin.json) for [Codex](https://developers.openai.com/codex/plugins), and [`plugin.json`](../plugin.json) for any [Agent Plugins](https://agent-plugins.org/) v1.0.0 client — so each one installs the same skills natively:
+
+```
+/plugin marketplace add svix/ai        # Claude Code
+/plugin install svix@svix
+```
 
 ## What else Svix gives an agent
 
