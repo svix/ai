@@ -9,6 +9,7 @@
     {
       "name": "svix",
       "source": "./",
+      "skills": ["./skills/svix-sending-webhooks", "./skills/receiving-webhooks"],
       "description": "Teaches AI agents to send and receive webhooks the way Svix's own engineers would.",
       "version": "1.0.0",
       "author": {

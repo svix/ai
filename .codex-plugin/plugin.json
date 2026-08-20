@@ -15,7 +15,7 @@
     "displayName": "Svix",
     "developerName": "Svix",
     "shortDescription": "Svix skills for sending, receiving, and debugging webhooks",
-    "longDescription": "",
+    "longDescription": "Two skills written by Svix's engineers: sending webhooks to your users with Svix (Dispatch and Ingest), and building reliable webhook receivers with signature verification, replay protection, and async processing.",
     "category": "Developer Tools",
     "capabilities": ["Read", "Write"],
     "websiteURL": "https://www.svix.com/",
@@ -23,7 +23,7 @@
     "termsOfServiceURL": "https://www.svix.com/terms/",
     "brandColor": "#2C70FF",
     "defaultPrompt": [
-      "Start sending webhooks when an user is created",
+      "Start sending webhooks when a user is created",
       "Review our webhook receiver for signature verification and replay protection"
     ],
     "logo": "./assets/logo.svg"

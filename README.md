@@ -9,7 +9,7 @@ Three kinds of things live here:
 | [**Skills**](#skills) | [Agent Skills](https://agentskills.io/): instructions that load into the agent's context on demand | Coding agents (Claude, Cursor, …) writing or reviewing a Svix integration |
 | [**MCP servers**](#mcp-servers) | Tools an agent can call against a live Svix account | Debugging real webhook deliveries from your editor |
 
-This repo is itself an [Agent Plugins](https://agent-plugins.org/), however, we also support other Clients:
+This repo is itself an [Agent Plugins](https://agent-plugins.org/) package, with dedicated manifests for other clients:
 
 | Client | Manifest | Install |
 | --- | --- | --- |
