@@ -9,7 +9,13 @@ Three kinds of things live here:
 | [**Skills**](#skills) | [Agent Skills](https://agentskills.io/): instructions that load into the agent's context on demand | Coding agents (Claude, Cursor, …) writing or reviewing a Svix integration |
 | [**MCP servers**](#mcp-servers) | Tools an agent can call against a live Svix account | Debugging real webhook deliveries from your editor |
 
-This repo is itself an [Agent Plugins](https://agent-plugins.org/) package: the [`plugin.json`](plugin.json) at the root packages the skills below for any conformant client.
+This repo is itself an [Agent Plugins](https://agent-plugins.org/) package, with dedicated manifests for other clients:
+
+| Client | Manifest | Install |
+| --- | --- | --- |
+| [Claude Code](https://code.claude.com/docs/en/plugins) | [`.claude-plugin/`](.claude-plugin/) | `/plugin marketplace add svix/ai` then `/plugin install svix@svix` |
+| [Codex](https://developers.openai.com/codex/plugins) | [`.codex-plugin/plugin.json`](.codex-plugin/plugin.json) | `/plugins` in the Codex CLI, or point a marketplace entry at this repo |
+| Any [Agent Plugins](https://agent-plugins.org/) client | [`plugin.json`](plugin.json) | point the client at a clone of the repo |
 
 ## Skills
 
