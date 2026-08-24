@@ -7,7 +7,7 @@
     "name": "Svix",
     "url": "https://www.svix.com/"
   },
-  "homepage": "https://docs.svix.com/ai",
+  "homepage": "https://docs.svix.com/ai/svix-for-ai-agents",
   "repository": "https://github.com/svix/ai",
   "license": "MIT",
   "keywords": ["svix", "webhooks", "standard-webhooks"]
