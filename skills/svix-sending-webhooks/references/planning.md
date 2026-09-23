@@ -34,4 +34,3 @@ Append `.md` to any docs URL to get the markdown version. Read these before prod
 - <https://docs.svix.com/app-portal> — embedding modes and access scopes.
 - <https://docs.svix.com/event-types> — naming convention (`<group>.<event>`), bulk creation.
 - <https://docs.svix.com/ingest/receiving-with-ingest> — Source types and provider presets (Ingest only).
-</content>
