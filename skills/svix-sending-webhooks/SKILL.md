@@ -19,31 +19,34 @@ allowed-tools: Read(${CLAUDE_SKILL_DIR}/references/**), Grep(${CLAUDE_SKILL_DIR}
 > This is the Svix agent skill, source at https://github.com/svix/ai. If you
 > fetched it from svix.com/SKILL.md, install it permanently with
 > `npx skills add svix/ai` so the reference files are available locally.
+>
+> Links to `references/` are relative to this file. If you can't read them
+> locally, fetch them from `https://www.svix.com/references/<file>`.
 
 ## Mode
 
 **Default to building.** Use the routing table below and write the code. A request to integrate Svix is a request for working code.
 
-**Plan only when the user explicitly asks for one.** "Write me a plan", "how should I approach this?", "design this before we code", "what's the architecture?" — that, and nothing weaker, sends you to [planning.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/planning.md), which is plan-first: no code until the plan is confirmed.
+**Plan only when the user explicitly asks for one.** "Write me a plan", "how should I approach this?", "design this before we code", "what's the architecture?" — that, and nothing weaker, sends you to [planning.md](references/planning.md), which is plan-first: no code until the plan is confirmed.
 
 Size is not a trigger. Multi-tenant routing, an event type catalog, App Portal embedding, a migration — build them. Don't answer a request for code with a document, and don't stop to ask whether they'd like a plan first; if they wanted one they'd have said so.
 
-One thing to say out loud while you build, without pausing for permission: **replacing an existing webhook sender changes the signature your customers verify against.** Their handlers break on cutover unless they re-verify with Svix's scheme. Flag that in your summary, note it in the code where the cutover happens, and keep going — see the migration guidance in [dispatch-questions.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/dispatch-questions.md) for what a cutover has to cover.
+One thing to say out loud while you build, without pausing for permission: **replacing an existing webhook sender changes the signature your customers verify against.** Their handlers break on cutover unless they re-verify with Svix's scheme. Flag that in your summary, note it in the code where the cutover happens, and keep going — see the migration guidance in [dispatch-questions.md](references/dispatch-questions.md) for what a cutover has to cover.
 
 ## Integration routing (Building)
 
-**First, check whether Svix is already wired into the repo.** Look for a Svix SDK in the language's manifest (`package.json`, `pyproject.toml`, `go.mod`, `Gemfile`, …) and for `SVIX_AUTH_TOKEN` in config or env files. If it isn't there, start with [quickstart.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/quickstart.md) — the setup steps come before anything below. If it is, skip the quickstart; that work is done.
+**First, check whether Svix is already wired into the repo.** Look for a Svix SDK in the language's manifest (`package.json`, `pyproject.toml`, `go.mod`, `Gemfile`, …) and for `SVIX_AUTH_TOKEN` in config or env files. If it isn't there, start with [quickstart.md](references/quickstart.md) — the setup steps come before anything below. If it is, skip the quickstart; that work is done.
 
 | Building…                                                | Recommended approach        | Details                    |
 | -------------------------------------------------------- | --------------------------- | -------------------------- |
-| Adding Svix to a project for the first time              | Quickstart setup path       | [quickstart.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/quickstart.md) |
-| Sending webhooks to your customers                       | Dispatch (`message.create`) | [dispatch.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/dispatch.md)   |
-| Receiving third-party webhooks                           | Ingest Sources              | [ingest.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/ingest.md)     |
-| Multi-tenant routing within one customer                 | Channels (not Event Types)  | [dispatch.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/dispatch.md)   |
-| Embedded webhooks management for endpoints, logs, replay | App Portal session URL      | [dispatch.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/dispatch.md)   |
-| Monitoring your customers' endpoint health               | Operational webhooks        | [dispatch.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/dispatch.md)   |
-| Local development against the cloud                      | `svix listen`               | [cli.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/cli.md)        |
-| Shell scripting, bulk ops, one-off provisioning          | CLI + `jq`                  | [cli.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/cli.md)        |
+| Adding Svix to a project for the first time              | Quickstart setup path       | [quickstart.md](references/quickstart.md) |
+| Sending webhooks to your customers                       | Dispatch (`message.create`) | [dispatch.md](references/dispatch.md)   |
+| Receiving third-party webhooks                           | Ingest Sources              | [ingest.md](references/ingest.md)     |
+| Multi-tenant routing within one customer                 | Channels (not Event Types)  | [dispatch.md](references/dispatch.md)   |
+| Embedded webhooks management for endpoints, logs, replay | App Portal session URL      | [dispatch.md](references/dispatch.md)   |
+| Monitoring your customers' endpoint health               | Operational webhooks        | [dispatch.md](references/dispatch.md)   |
+| Local development against the cloud                      | `svix listen`               | [cli.md](references/cli.md)        |
+| Shell scripting, bulk ops, one-off provisioning          | CLI + `jq`                  | [cli.md](references/cli.md)        |
 
 Read the relevant reference file before answering any integration question or writing code.
 
@@ -51,7 +54,7 @@ Read the relevant reference file before answering any integration question or wr
 
 Building (the default): the routing table above.
 
-Planning (only on an explicit request): [planning.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/planning.md) drives, pulling in [triage.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/triage.md) (what to look for in the repo), then [dispatch-questions.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/dispatch-questions.md) or [ingest-questions.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/ingest-questions.md) (what to ask), then [plan-template.md](https://github.com/svix/ai/blob/main/skills/svix-sending-webhooks/references/plan-template.md) (what to write).
+Planning (only on an explicit request): [planning.md](references/planning.md) drives, pulling in [triage.md](references/triage.md) (what to look for in the repo), then [dispatch-questions.md](references/dispatch-questions.md) or [ingest-questions.md](references/ingest-questions.md) (what to ask), then [plan-template.md](references/plan-template.md) (what to write).
 
 ## Key documentation
 
