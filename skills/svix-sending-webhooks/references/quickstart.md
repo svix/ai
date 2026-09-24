@@ -118,7 +118,7 @@ The first message working is not a production integration. Next, in rough order:
 - **Idempotency** on `message.create`, and the outbox pattern → [dispatch.md](dispatch.md)
 - **Operational webhooks** so you learn about broken customer endpoints before they complain → [dispatch.md](dispatch.md)
 - **Event Type catalog** with JSONSchemas → <https://docs.svix.com/event-types>
-- **Handler-side verification**, if you also consume webhooks → the `receiving-webhooks` skill
+- **Handler-side verification**, if you also consume webhooks → the [`receiving-webhooks` skill](https://github.com/svix/ai/tree/main/skills/receiving-webhooks)
 
 ## Reference URLs
 
@@ -131,5 +131,3 @@ The first message working is not a production integration. Next, in rough order:
 | Event Types | <https://docs.svix.com/event-types> |
 | Consumer App Portal | <https://docs.svix.com/app-portal> |
 | Interactive API docs | <https://api.svix.com/docs> |
-</content>
-</invoke>
