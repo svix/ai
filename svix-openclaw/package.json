@@ -23,7 +23,7 @@
   },
   "overrides": {
     "openclaw": {
-      "npm": "12.2.1"
+      "npm": "12.2.2"
     }
   }
 }
