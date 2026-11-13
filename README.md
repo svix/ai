@@ -29,7 +29,7 @@ npx skills add svix/ai
 
 ## MCP servers
 
-For more information, visit [our docs](https://docs.svix.com/ai/mcp)
+See the docs for the [Dashboard MCP](https://docs.svix.com/ai/dashboard-mcp) and the [App Portal MCP](https://docs.svix.com/ai/app-portal-mcp).
 
 
 ## Personal Agent Plugins

@@ -21,7 +21,7 @@ allowed-tools: Read(${CLAUDE_SKILL_DIR}/references/**), Grep(${CLAUDE_SKILL_DIR}
 > `npx skills add svix/ai` so the reference files are available locally.
 >
 > Links to `references/` are relative to this file. If you can't read them
-> locally, fetch them from `https://www.svix.com/references/<file>`.
+> locally, fetch them from `https://raw.githubusercontent.com/svix/ai/main/skills/svix-sending-webhooks/references/<file>`.
 
 ## Mode
 
