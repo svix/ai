@@ -14,7 +14,7 @@
   "interface": {
     "displayName": "Svix",
     "developerName": "Svix",
-    "shortDescription": "Svix skills for sending, receiving, and debugging webhooks",
+    "shortDescription": "Send and receive webhooks",
     "longDescription": "Two skills written by Svix's engineers: sending webhooks to your users with Svix (Dispatch and Ingest), and building reliable webhook receivers with signature verification, replay protection, and async processing.",
     "category": "Developer Tools",
     "capabilities": ["Read", "Write"],
